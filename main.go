@@ -266,7 +266,7 @@ func main() {
 			if err != nil {
 				return err
 			}
-			contacts, err := public.ClosestStores(target, 16)
+			contacts, err := public.ClosestStores(targetHash, 16)
 			if err != nil {
 				return err
 			}
@@ -281,7 +281,7 @@ func main() {
 			if err != nil {
 				return err
 			}
-			contacts, err := public.ClosestPeers(target, 16)
+			contacts, err := public.ClosestPeers(targetHash, 16)
 			if err != nil {
 				return err
 			}
@@ -294,7 +294,7 @@ func main() {
 
 		var targetAddr []*net.UDPAddr
 		if remotes == "closest_store" {
-			contacts, err := public.ClosestStores(target, 8)
+			contacts, err := public.ClosestStores(targetHash, 8)
 			if err != nil {
 				return err
 			}
@@ -303,7 +303,7 @@ func main() {
 				targetAddr = append(targetAddr, c.GetAddr())
 			}
 		} else if remotes == "closest_peers" {
-			contacts, err := public.ClosestPeers(target, 8)
+			contacts, err := public.ClosestPeers(targetHash, 8)
 			if err != nil {
 				return err
 			}
