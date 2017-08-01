@@ -73,11 +73,10 @@ func TestBep44(t *testing.T) {
 			alice.Addr(),
 		}
 		id := []byte("abcd")
-		bobRPC.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) error {
-			_, qerr := bobRPC.Get(remote, id[:], func(res kmsg.Msg) {
+		bobRPC.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
+			return bobRPC.Get(remote, id[:], func(res kmsg.Msg) {
 				done <- res.E
 			})
-			return qerr
 		})
 	})
 	t.Run("should make proper immutable put request", func(t *testing.T) {
@@ -116,11 +115,10 @@ func TestBep44(t *testing.T) {
 		addrs := []*net.UDPAddr{
 			alice.Addr(),
 		}
-		bobRPC.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) error {
-			_, qerr := bobRPC.Put(remote, "hello", "writeToken", func(res kmsg.Msg) {
+		bobRPC.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
+			return bobRPC.Put(remote, "hello", "writeToken", func(res kmsg.Msg) {
 				done <- res.E
 			})
-			return qerr
 		})
 	})
 	t.Run("should make proper mutable get request", func(t *testing.T) {
@@ -158,11 +156,10 @@ func TestBep44(t *testing.T) {
 			alice.Addr(),
 		}
 		id := []byte("abcd")
-		bobRPC.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) error {
-			_, qerr := bobRPC.MGet(remote, id[:], 2, func(res kmsg.Msg) {
+		bobRPC.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
+			return bobRPC.MGet(remote, id[:], 2, func(res kmsg.Msg) {
 				done <- res.E
 			})
-			return qerr
 		})
 	})
 	t.Run("should make proper mutable put request", func(t *testing.T) {
@@ -201,11 +198,10 @@ func TestBep44(t *testing.T) {
 		addrs := []*net.UDPAddr{
 			alice.Addr(),
 		}
-		bobRPC.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) error {
-			_, qerr := bobRPC.MPut(remote, "value", []byte("pbk"), []byte("sign"), 2, 3, "salt", "writeToken", func(res kmsg.Msg) {
+		bobRPC.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
+			return bobRPC.MPut(remote, "value", []byte("pbk"), []byte("sign"), 2, 3, "salt", "writeToken", func(res kmsg.Msg) {
 				done <- res.E
 			})
-			return qerr
 		})
 	})
 	// t.Run("should blank a response get token when the node id is insecure", func(t *testing.T) {

@@ -58,11 +58,10 @@ func TestBep05(t *testing.T) {
 			alice.Addr(),
 		}
 		id := []byte("abcd")
-		bobRPC.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) error {
-			_, qerr := bobRPC.FindNode(remote, id[:], func(res kmsg.Msg) {
+		bobRPC.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
+			return bobRPC.FindNode(remote, id[:], func(res kmsg.Msg) {
 				done <- res.E
 			})
-			return qerr
 		})
 	})
 	t.Run("should make proper ping request", func(t *testing.T) {
@@ -85,11 +84,10 @@ func TestBep05(t *testing.T) {
 		addrs := []*net.UDPAddr{
 			alice.Addr(),
 		}
-		bobRPC.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) error {
-			_, qerr := bobRPC.Ping(remote, func(res kmsg.Msg) {
+		bobRPC.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
+			return bobRPC.Ping(remote, func(res kmsg.Msg) {
 				done <- res.E
 			})
-			return qerr
 		})
 	})
 	t.Run("should make proper get_peers request", func(t *testing.T) {
@@ -115,11 +113,10 @@ func TestBep05(t *testing.T) {
 			alice.Addr(),
 		}
 		id := []byte("abcd")
-		bobRPC.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) error {
-			_, qerr := bobRPC.GetPeers(remote, id[:], func(res kmsg.Msg) {
+		bobRPC.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
+			return bobRPC.GetPeers(remote, id[:], func(res kmsg.Msg) {
 				done <- res.E
 			})
-			return qerr
 		})
 	})
 	t.Run("should make proper announce_peer request", func(t *testing.T) {
@@ -151,11 +148,10 @@ func TestBep05(t *testing.T) {
 			alice.Addr(),
 		}
 		id := []byte("abcd")
-		bobRPC.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) error {
-			_, qerr := bobRPC.AnnouncePeer(remote, id[:], "writeToken", 9090, true, func(res kmsg.Msg) {
+		bobRPC.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
+			return bobRPC.AnnouncePeer(remote, id[:], "writeToken", 9090, true, func(res kmsg.Msg) {
 				done <- res.E
 			})
-			return qerr
 		})
 	})
 }

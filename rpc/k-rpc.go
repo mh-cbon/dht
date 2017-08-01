@@ -55,6 +55,7 @@ type KRPC struct {
 	bootstrap            *bucket.TSBucket  // our location in the network we are connected to.
 	lookupTableForPeers  *TSTableStore     // bep05
 	lookupTableForStores *TSTableStore     // bep44
+	peerStatsLogger      PeerStatLogger
 }
 
 // New Kadmelia rpc of socket.
@@ -72,6 +73,7 @@ func New(s SocketRPCer, c KRPCConfig) *KRPC {
 		badNodes:             boom.NewBloomFilter(3500, 0.5),
 		lookupTableForPeers:  NewTSStore(),
 		lookupTableForStores: NewTSStore(),
+		peerStatsLogger:      NewTSPeerStatsLogger(NewPeerStatsLogger()),
 	}
 	ret.OnTimeout(nil) // force create a callback to cleanup lookup tables.
 	return ret
@@ -108,12 +110,16 @@ func (k *KRPC) Close() error {
 
 // Listen the socket.
 func (k *KRPC) Listen(h socket.QueryHandler) error {
-	return k.socket.Listen(SecuredQueryOnly(k, BanRoNodes(k, h)))
+	h = SecuredQueryOnly(k, BanRoNodes(k, h))
+	return k.socket.Listen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
+		go k.peerStatsLogger.OnRcvQuery(remote, msg)
+		return h(msg, remote)
+	})
 }
 
 // MustListen the socket might panic.
 func (k *KRPC) MustListen(h socket.QueryHandler) {
-	err := k.socket.Listen(SecuredQueryOnly(k, BanRoNodes(k, h)))
+	err := k.Listen(h)
 	if err != nil && err != io.EOF {
 		panic(err)
 	}
@@ -129,15 +135,35 @@ func (k *KRPC) ID() string {
 	return k.socket.ID()
 }
 
+// PeerStatLogger is a kind of logger to establish peer statistics.
+type PeerStatLogger interface {
+	OnSendQuery(remote *net.UDPAddr, q string, a map[string]interface{})
+	OnRcvQuery(remote *net.UDPAddr, query kmsg.Msg)
+	OnSendResponse(remote *net.UDPAddr, txID string, a kmsg.Return)
+	OnSendError(remote *net.UDPAddr, txID string, e kmsg.Error)
+	OnRcvResponse(remote *net.UDPAddr, fromQ string, fromA map[string]interface{}, response kmsg.Msg)
+	IsTimeout(remote *net.UDPAddr) bool
+	IsActive(remote *net.UDPAddr) bool
+	GoodNodes(nodes []kmsg.NodeInfo) []bucket.ContactIdentifier
+	IsBadNode(addr *net.UDPAddr) bool
+	AddBadNode(addr *net.UDPAddr)
+}
+
+// SetPeerStatsLogger peer stats logger.
+func (k *KRPC) SetPeerStatsLogger(l PeerStatLogger) {
+	k.peerStatsLogger = l
+}
+
 // Query a node.
 func (k *KRPC) Query(node *net.UDPAddr, q string, a map[string]interface{}, onResponse func(kmsg.Msg)) (*socket.Tx, error) {
-	// bep43: if the node is read-only, all outgoing queries should be marked RO.
+	go k.peerStatsLogger.OnSendQuery(node, q, a)
 	return k.socket.Query(node, q, a, func(res kmsg.Msg) {
 		if res.E != nil && k.onNodeTimeout != nil {
 			if res.E.Code == 201 {
 				go k.onNodeTimeout(q, a, node, *res.E)
 			}
 		}
+		go k.peerStatsLogger.OnRcvResponse(node, q, a, res)
 		if onResponse != nil {
 			onResponse(res)
 		}
@@ -146,16 +172,18 @@ func (k *KRPC) Query(node *net.UDPAddr, q string, a map[string]interface{}, onRe
 
 // Respond to node.
 func (k *KRPC) Respond(node *net.UDPAddr, txID string, a kmsg.Return) error {
+	go k.peerStatsLogger.OnSendResponse(node, txID, a)
 	return k.socket.Respond(node, txID, a)
 }
 
 // Error respond an error to node.
 func (k *KRPC) Error(node *net.UDPAddr, txID string, e kmsg.Error) error {
+	go k.peerStatsLogger.OnSendError(node, txID, e)
 	return k.socket.Error(node, txID, e)
 }
 
 // VisitIndex is the func sgnature to visit slices.
-type VisitIndex func(int, chan<- error) error
+type VisitIndex func(int, chan<- error) (*socket.Tx, error)
 
 //Batch queries, calls for visit.
 func (k *KRPC) Batch(n int, visit VisitIndex) []error {
@@ -165,7 +193,7 @@ func (k *KRPC) Batch(n int, visit VisitIndex) []error {
 		for i := 0; i < n; i++ {
 			e := i
 			go func() {
-				if err := visit(e, done); err != nil {
+				if _, err := visit(e, done); err != nil {
 					done <- err
 				}
 			}()
@@ -186,21 +214,21 @@ func (k *KRPC) Batch(n int, visit VisitIndex) []error {
 }
 
 // VisitAddr is the func sgnature to visit addresses.
-type VisitAddr func(*net.UDPAddr, chan<- error) error //todo: add tx.TX as first return arg.
+type VisitAddr func(*net.UDPAddr, chan<- error) (*socket.Tx, error)
 
 //BatchAddrs queries, calls for visit.
 func (k *KRPC) BatchAddrs(addrs []*net.UDPAddr, visit VisitAddr) []error {
-	return k.Batch(len(addrs), func(i int, done chan<- error) error {
+	return k.Batch(len(addrs), func(i int, done chan<- error) (*socket.Tx, error) {
 		return visit(addrs[i], done)
 	})
 }
 
 // VisitNode is the func sgnature to visit nodes.
-type VisitNode func(bucket.ContactIdentifier, chan<- error) error //todo: add tx.TX as first return arg.
+type VisitNode func(bucket.ContactIdentifier, chan<- error) (*socket.Tx, error)
 
 //BatchNodes queries, calls for visit.
 func (k *KRPC) BatchNodes(nodes []bucket.ContactIdentifier, visit VisitNode) []error {
-	return k.Batch(len(nodes), func(i int, done chan<- error) error {
+	return k.Batch(len(nodes), func(i int, done chan<- error) (*socket.Tx, error) {
 		return visit(nodes[i], done)
 	})
 }

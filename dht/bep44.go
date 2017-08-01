@@ -116,22 +116,20 @@ func (d *DHT) GetAll(hexTarget string, addrs ...*net.UDPAddr) (string, error) {
 	}
 	var gotErrs []error
 	if len(addrs) > 0 {
-		gotErrs = d.rpc.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) error {
-			_, err := d.Get(remote, hexTarget, func(res kmsg.Msg) {
+		gotErrs = d.rpc.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
+			return d.Get(remote, hexTarget, func(res kmsg.Msg) {
 				done <- onResponse(remote, res)
 			})
-			return err
 		})
 	} else {
 		closests, err := d.ClosestStores(hexTarget, 32)
 		if err != nil {
 			return "", err
 		}
-		gotErrs = d.rpc.BatchNodes(closests, func(remote bucket.ContactIdentifier, done chan<- error) error {
-			_, err := d.Get(remote.GetAddr(), hexTarget, func(res kmsg.Msg) {
+		gotErrs = d.rpc.BatchNodes(closests, func(remote bucket.ContactIdentifier, done chan<- error) (*socket.Tx, error) {
+			return d.Get(remote.GetAddr(), hexTarget, func(res kmsg.Msg) {
 				done <- onResponse(remote.GetAddr(), res)
 			})
-			return err
 		})
 	}
 	if ret == "" {
@@ -188,22 +186,20 @@ func (d *DHT) MGetAll(hexTarget string, pbk []byte, seq int, salt string, addrs 
 	}
 	var gotErrs []error
 	if len(addrs) > 0 {
-		gotErrs = d.rpc.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) error {
-			_, err := d.MGet(remote, hexTarget, pbk, seq, salt, func(res kmsg.Msg) {
+		gotErrs = d.rpc.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
+			return d.MGet(remote, hexTarget, pbk, seq, salt, func(res kmsg.Msg) {
 				done <- onResponse(remote, res)
 			})
-			return err
 		})
 	} else {
 		closests, err := d.ClosestStores(hexTarget, 8)
 		if err != nil {
 			return "", err
 		}
-		gotErrs = d.rpc.BatchNodes(closests, func(remote bucket.ContactIdentifier, done chan<- error) error {
-			_, err := d.MGet(remote.GetAddr(), hexTarget, pbk, seq, salt, func(res kmsg.Msg) {
+		gotErrs = d.rpc.BatchNodes(closests, func(remote bucket.ContactIdentifier, done chan<- error) (*socket.Tx, error) {
+			return d.MGet(remote.GetAddr(), hexTarget, pbk, seq, salt, func(res kmsg.Msg) {
 				done <- onResponse(remote.GetAddr(), res)
 			})
-			return err
 		})
 	}
 	if ret == "" {
@@ -292,11 +288,10 @@ func (d *DHT) PutAll(value string, addrs ...*net.UDPAddr) (string, error) {
 	v := fmt.Sprintf("%v:%v", len(value), value)
 	hexTarget := ValueToHex(v)
 
-	onResponse := func(addr *net.UDPAddr, done chan<- error) error {
-		_, err := d.Put(addr, value, func(res kmsg.Msg) {
+	onResponse := func(addr *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
+		return d.Put(addr, value, func(res kmsg.Msg) {
 			done <- res.E
 		})
-		return err
 	}
 
 	var errs []error
@@ -307,7 +302,7 @@ func (d *DHT) PutAll(value string, addrs ...*net.UDPAddr) (string, error) {
 		if err != nil {
 			return hexTarget, err
 		}
-		errs = d.rpc.BatchNodes(closest, func(remote bucket.ContactIdentifier, done chan<- error) error {
+		errs = d.rpc.BatchNodes(closest, func(remote bucket.ContactIdentifier, done chan<- error) (*socket.Tx, error) {
 			return onResponse(remote.GetAddr(), done)
 		})
 	}
@@ -405,11 +400,10 @@ func (d *DHT) MPutAll(value *MutablePut, addrs ...*net.UDPAddr) error {
 	// 	return e
 	// }
 
-	onResponse := func(addr *net.UDPAddr, done chan<- error) error {
-		_, err := d.MPut(addr, value, func(res kmsg.Msg) {
+	onResponse := func(addr *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
+		return d.MPut(addr, value, func(res kmsg.Msg) {
 			done <- res.E
 		})
-		return err
 	}
 
 	var errs []error
@@ -421,7 +415,7 @@ func (d *DHT) MPutAll(value *MutablePut, addrs ...*net.UDPAddr) error {
 		if err != nil {
 			return err
 		}
-		errs = d.rpc.BatchNodes(closest, func(remote bucket.ContactIdentifier, done chan<- error) error {
+		errs = d.rpc.BatchNodes(closest, func(remote bucket.ContactIdentifier, done chan<- error) (*socket.Tx, error) {
 			return onResponse(remote.GetAddr(), done)
 		})
 	}

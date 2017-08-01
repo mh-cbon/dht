@@ -38,25 +38,6 @@ func safeXORBytes(dst, a, b []byte) int {
 }
 
 func main() {
-	// func() {
-	// 	value := "e"
-	// 	h := crypto.HashSha1(value)
-	// 	target, e := hex.DecodeString(h)
-	// 	if e != nil {
-	// 		panic(e)
-	// 	}
-	// 	log.Printf("%x\n", target)
-	// 	log.Printf("%v\n", target)
-	// 	log.Printf("%v\n", len(target))
-	// 	newTarget := make([]byte, len(target))
-	// 	copy(newTarget, target)
-	// 	newTarget[2] = newTarget[2] + 1
-	// 	log.Printf("%x\n", newTarget)
-	// 	log.Printf("%v\n", newTarget)
-	// 	log.Printf("%v\n", len(newTarget))
-	// 	log.Printf("%v\n", bucket.Distance(target, newTarget)/255)
-	// 	os.Exit(0)
-	// }()
 
 	var tokenSecret string
 	var qconcurreny int

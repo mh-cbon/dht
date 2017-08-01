@@ -3,12 +3,12 @@ package rpc
 import (
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/anacrolix/torrent/util"
 	"github.com/mh-cbon/dht/bootstrap"
 	"github.com/mh-cbon/dht/bucket"
 	"github.com/mh-cbon/dht/kmsg"
+	"github.com/mh-cbon/dht/socket"
 	boom "github.com/tylertreat/BoomFilters"
 )
 
@@ -88,8 +88,8 @@ func (k *KRPC) Boostrap(target []byte, publicIP *util.CompactPeer, addrs []strin
 		}
 		todoBNodes := bnContacts[i:u]
 
-		errs := k.BatchNodes(todoBNodes, func(contact bucket.ContactIdentifier, done chan<- error) error {
-			_, qErr := k.FindNode(contact.GetAddr(), target, func(res kmsg.Msg) {
+		errs := k.BatchNodes(todoBNodes, func(contact bucket.ContactIdentifier, done chan<- error) (*socket.Tx, error) {
+			return k.FindNode(contact.GetAddr(), target, func(res kmsg.Msg) {
 				if res.E != nil {
 					table.RemoveByAddr(contact.GetAddr())
 				} else if res.Y == "r" && res.R != nil {
@@ -100,7 +100,6 @@ func (k *KRPC) Boostrap(target []byte, publicIP *util.CompactPeer, addrs []strin
 				}
 				done <- res.E
 			})
-			return qErr
 		})
 		gotErr = append(gotErr, errs...)
 		ncontacts = table.Closest(target, 8)
@@ -127,8 +126,8 @@ func (k *KRPC) Boostrap(target []byte, publicIP *util.CompactPeer, addrs []strin
 			break
 		}
 		hops++
-		k.BatchNodes(contacts, func(contact bucket.ContactIdentifier, done chan<- error) error {
-			_, qErr := k.FindNode(contact.GetAddr(), target, func(res kmsg.Msg) {
+		k.BatchNodes(contacts, func(contact bucket.ContactIdentifier, done chan<- error) (*socket.Tx, error) {
+			return k.FindNode(contact.GetAddr(), target, func(res kmsg.Msg) {
 				if res.E != nil {
 					table.RemoveByAddr(contact.GetAddr())
 				} else if res.Y == "r" && res.R != nil && res.SenderID() == string(contact.GetID()) {
@@ -139,7 +138,6 @@ func (k *KRPC) Boostrap(target []byte, publicIP *util.CompactPeer, addrs []strin
 				}
 				done <- res.E
 			})
-			return qErr
 		})
 		ncontacts = table.Closest(target, 8)
 	}
@@ -183,57 +181,40 @@ func (k *KRPC) notQueried(queriedNodes *boom.BloomFilter, contacts []bucket.Cont
 }
 
 func (k *KRPC) goodNodes(nodes []kmsg.NodeInfo) []bucket.ContactIdentifier {
-	ret := []bucket.ContactIdentifier{}
-	if nodes == nil {
-		return ret
-	}
-	k.mu.Lock()
-	defer k.mu.Unlock()
-	for _, n := range nodes {
-		if !k.isBadNode(n.Addr) {
-			ret = append(ret, NewNode(n.ID, n.Addr))
-		}
-	}
-	return ret
+	return k.peerStatsLogger.GoodNodes(nodes)
+	// ret := []bucket.ContactIdentifier{}
+	// if nodes == nil {
+	// 	return ret
+	// }
+	// k.mu.Lock()
+	// defer k.mu.Unlock()
+	// for _, n := range nodes {
+	// 	if !k.isBadNode(n.Addr) {
+	// 		ret = append(ret, NewNode(n.ID, n.Addr))
+	// 	}
+	// }
+	// return ret
 }
 
 // handleTablePing handles the ping event emitted on the table,
 // it is very standard thing about removing useless nodes, adding new ones if positions are available.
 func (k *KRPC) handleTablePing(table *bucket.TSBucket) bucket.PingFunc {
 	return func(oldContacts []bucket.ContactIdentifier, newishContact bucket.ContactIdentifier) {
-		successPing := 0
-		mu := &sync.RWMutex{}
-		var wg sync.WaitGroup
-		wg.Add(len(oldContacts))
-		for _, c := range oldContacts {
-			n := c
-			if x, ok := n.(Node); ok {
-				if x.lastPing.Add(time.Second * 5).After(time.Now()) {
-					continue
-				}
+		errs := k.BatchNodes(oldContacts, func(c bucket.ContactIdentifier, done chan<- error) (*socket.Tx, error) {
+			if k.peerStatsLogger.IsActive(c.GetAddr()) {
+				done <- nil
+				return nil, nil
 			}
-			k.socket.Query(n.GetAddr(), "ping", nil, func(msg kmsg.Msg) {
+			return k.Ping(c.GetAddr(), func(msg kmsg.Msg) {
 				if msg.E != nil {
-					table.Remove(n.GetID())
+					table.Remove(c.GetID())
 				} else {
-					if x, ok := n.(Node); ok {
-						x.lastPing = time.Now()
-						n = x
-					}
-					table.Add(n)
-					mu.Lock()
-					successPing++
-					mu.Unlock()
+					table.Add(c)
 				}
-				wg.Done()
+				done <- msg.E
 			})
-		}
-		wg.Wait()
-		if successPing != len(oldContacts) {
-			if x, ok := newishContact.(Node); ok {
-				x.lastPing = time.Now()
-				newishContact = x
-			}
+		})
+		if len(errs) > 0 {
 			table.Add(newishContact)
 		}
 	}

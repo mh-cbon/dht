@@ -28,20 +28,16 @@ func SecuredResponseOnly(remote *net.UDPAddr, f func(kmsg.Msg)) func(kmsg.Msg) {
 // but without enforcing it will respond with a normal reply ("y": "r", "r": { ... }).
 func SecuredQueryOnly(k *KRPC, f socket.QueryHandler) socket.QueryHandler {
 	return func(msg kmsg.Msg, remote *net.UDPAddr) error {
+		if msg.A == nil {
+			return fmt.Errorf("Invalid get_peers packet: mising Arguments")
+		}
 		q := msg.Q
-		if q == QGetPeers {
-			if msg.A == nil {
-				return fmt.Errorf("Invalid get_peers packet: mising Arguments")
-			} else if security.NodeIDSecure(msg.A.ID, remote.IP) == false {
-				return k.Error(remote, msg.T, kmsg.ErrorInsecureNodeID)
-			}
-
-		} else if q == QGet {
-			if msg.A == nil {
-				return fmt.Errorf("Invalid get_peers packet: mising Arguments")
-			} else if security.NodeIDSecure(msg.A.ID, remote.IP) == false {
-				return k.Error(remote, msg.T, kmsg.ErrorInsecureNodeID)
-			}
+		if (q == QGet || q == QGetPeers) && security.NodeIDSecure(msg.A.ID, remote.IP) == false {
+			//tdo: check about that with stat store
+			// k.addBadNode(remote)
+			k.lookupTableForPeers.RemoveNode(remote)
+			k.lookupTableForStores.RemoveNode(remote)
+			return k.Error(remote, msg.T, kmsg.ErrorInsecureNodeID)
 		}
 		return f(msg, remote)
 	}

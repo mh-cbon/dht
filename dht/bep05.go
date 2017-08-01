@@ -23,14 +23,13 @@ func (d *DHT) Ping(addr *net.UDPAddr, onResponse func(kmsg.Msg)) (*socket.Tx, er
 
 // PingAll node.
 func (d *DHT) PingAll(addrs []*net.UDPAddr, onResponse func(*net.UDPAddr, kmsg.Msg)) []error {
-	return d.rpc.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) error {
-		_, err := d.Ping(remote, func(res kmsg.Msg) {
+	return d.rpc.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
+		return d.Ping(remote, func(res kmsg.Msg) {
 			if onResponse != nil {
 				onResponse(remote, res)
 			}
 			done <- res.E
 		})
-		return err
 	})
 }
 
@@ -75,14 +74,13 @@ func (d *DHT) FindNode(addr *net.UDPAddr, hexTarget string, onResponse func(kmsg
 
 // FindNodeAll sends find_node msg to all addresses.
 func (d *DHT) FindNodeAll(addrs []*net.UDPAddr, hexTarget string, onResponse func(*net.UDPAddr, kmsg.Msg)) []error {
-	return d.rpc.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) error {
-		_, err := d.FindNode(remote, hexTarget, func(res kmsg.Msg) {
+	return d.rpc.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
+		return d.FindNode(remote, hexTarget, func(res kmsg.Msg) {
 			if onResponse != nil {
 				onResponse(remote, res)
 			}
 			done <- res.E
 		})
-		return err
 	})
 }
 
@@ -151,14 +149,13 @@ func (d *DHT) GetPeers(addr *net.UDPAddr, hexTarget string, onResponse func(kmsg
 
 // GetPeersAll sends get_peers msg to all addresses.
 func (d *DHT) GetPeersAll(addrs []*net.UDPAddr, hexTarget string, onResponse func(*net.UDPAddr, kmsg.Msg)) []error {
-	return d.rpc.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) error {
-		_, err := d.GetPeers(remote, hexTarget, func(res kmsg.Msg) {
+	return d.rpc.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
+		return d.GetPeers(remote, hexTarget, func(res kmsg.Msg) {
 			if onResponse != nil {
 				onResponse(remote, res)
 			}
 			done <- res.E
 		})
-		return err
 	})
 }
 
@@ -223,13 +220,12 @@ func (d *DHT) AnnouncePeer(addr *net.UDPAddr, hexTarget string, port uint, impli
 
 // AnnouncePeerAll sends a announce_peer query to all addr.
 func (d *DHT) AnnouncePeerAll(addrs []*net.UDPAddr, hexTarget string, port uint, impliedPort bool, onResponse func(*net.UDPAddr, kmsg.Msg)) []error {
-	return d.rpc.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) error {
-		_, err := d.AnnouncePeer(remote, hexTarget, port, impliedPort, func(res kmsg.Msg) {
+	return d.rpc.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
+		return d.AnnouncePeer(remote, hexTarget, port, impliedPort, func(res kmsg.Msg) {
 			if onResponse != nil {
 				onResponse(remote, res)
 			}
 			done <- res.E
 		})
-		return err
 	})
 }

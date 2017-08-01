@@ -31,7 +31,7 @@ type Msg struct {
 
 // MsgArgs are the query arguments.
 type MsgArgs struct {
-	ID          string `bencode:"id"`           // ID of the quirying Node
+	ID          string `bencode:"id"`           // ID of the querying Node
 	InfoHash    string `bencode:"info_hash"`    // InfoHash of the torrent
 	Target      string `bencode:"target"`       // ID of the node sought
 	Token       string `bencode:"token"`        // Token received from an earlier get_peers query

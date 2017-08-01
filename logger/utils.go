@@ -10,7 +10,7 @@ import (
 	"github.com/mh-cbon/dht/rpc"
 )
 
-// LogFuncs is a ogger helper
+// LogFuncs is a logger helper
 type LogFuncs struct{}
 
 // OnSendQuery logs a query send
@@ -37,7 +37,7 @@ func (l LogFuncs) OnSendQuery(remote *net.UDPAddr, p map[string]interface{}) {
 				a["seq"], a["cas"], shortByteStr(a["k"]), shortByteStr(a["sig"]))
 		}
 	}
-	log.Printf("send to   %-24v tx:%-4x id:%q q:%-15v %v", remote.String(), p["t"], shortByteStr(a["id"]), p["q"], extra)
+	log.Printf("send quy %-24v tx:%-4x id:%q q:%-15v %v", remote.String(), p["t"], shortByteStr(a["id"]), p["q"], extra)
 }
 
 // OnRcvQuery logs a query reception
@@ -65,7 +65,7 @@ func (l LogFuncs) OnRcvQuery(remote *net.UDPAddr, p kmsg.Msg) {
 				shortByteStr(a.K), shortByteStr(a.Sign))
 		}
 	}
-	log.Printf("recv from %-24v tx:%-4x id:%q q:%-15v %v", remote.String(), p.T, shortByteStr(a.ID), p.Q, extra)
+	log.Printf("recv quy %-24v tx:%-4x id:%q q:%-15v %v", remote.String(), p.T, shortByteStr(a.ID), p.Q, extra)
 }
 
 // OnSendResponse logs a response send
@@ -82,7 +82,7 @@ func (l LogFuncs) OnSendResponse(remote *net.UDPAddr, p map[string]interface{}) 
 		e := p["e"].(kmsg.Error)
 		extra = fmt.Sprintf("code:%v msg:%q", e.Code, e.Msg)
 	}
-	log.Printf("send to   %-24v tx:%-4x %v", remote.String(), p["t"], extra)
+	log.Printf("send res %-24v tx:%-4x %v", remote.String(), p["t"], extra)
 }
 
 // OnRcvResponse logs a response reception
@@ -99,7 +99,7 @@ func (l LogFuncs) OnRcvResponse(remote *net.UDPAddr, p kmsg.Msg) {
 			extra += fmt.Sprintf(" k:%v sign:%v", shortByteStr(r.K), shortByteStr(r.Sign))
 		}
 	}
-	log.Printf("recv from %-24v tx:%-4x %v", remote.String(), p.T, extra)
+	log.Printf("recv res %-24v tx:%-4x %v", remote.String(), p.T, extra)
 }
 
 // Std helper for logging

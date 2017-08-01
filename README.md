@@ -1,6 +1,6 @@
 # DHT - kademlia
 
-This is a golang implementation of a kadmelia Districbuted Hash Table.
+This is a golang implementation of a kadmelia Distributed Hash Table.
 
 It provides support for bep05 / bep42 / bep43 / bep44
 

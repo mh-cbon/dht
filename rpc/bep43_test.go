@@ -38,7 +38,6 @@ func TestBep43(t *testing.T) {
 		return socket.New(socket.RPCConfig{}.WithID(makID(name)).WithTimeout(timeout).WithAddr(addr))
 	}
 	t.Run("should ban node if it sends a query with read-only flag", func(t *testing.T) {
-
 		bob := makeSocket("bob", "127.0.0.1", timeout)
 		bobRPC := New(bob, KRPCConfig{})
 		go bobRPC.Listen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
@@ -57,7 +56,7 @@ func TestBep43(t *testing.T) {
 		alice.Query(bob.Addr(), "ping", nil, func(res kmsg.Msg) {})
 		<-time.After(timeout * 2)
 		if bobRPC.isBadNode(alice.Addr()) == false {
-			t.Error("wanted bob to record alice as bad node")
+			t.Errorf("wanted bob to record alice (%q) as bad node", alice.Addr().String())
 		}
 	})
 }

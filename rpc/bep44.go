@@ -17,7 +17,17 @@ var QGet = "get"
 func (k *KRPC) Get(addr *net.UDPAddr, target []byte, onResponse func(kmsg.Msg)) (*socket.Tx, error) {
 	a := map[string]interface{}{"target": target}
 	// bep42: guards against bad node id
-	return k.Query(addr, QGet, a, SecuredResponseOnly(addr, onResponse))
+	return k.Query(addr, QGet, a, SecuredResponseOnly(addr, func(msg kmsg.Msg) {
+		if msg.E != nil {
+			//tdo: check about that with stat store
+			// avoid putting that node into the lookup tables.
+			// k.addBadNode(addr)
+			k.lookupTableForStores.RemoveNode(addr)
+		}
+		if onResponse != nil {
+			onResponse(msg)
+		}
+	}))
 }
 
 //CheckGetResponse for given seq and salt.

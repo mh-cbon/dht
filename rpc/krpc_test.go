@@ -146,16 +146,15 @@ func TestKRPC(t *testing.T) {
 
 		ids := []string{string(alice.GetID()), string(fred.GetID())}
 		addrs := []*net.UDPAddr{alice.Addr(), fred.Addr()}
-		errs := bobRPC.Batch(len(addrs), func(i int, done chan<- error) error {
+		errs := bobRPC.Batch(len(addrs), func(i int, done chan<- error) (*socket.Tx, error) {
 			addr := addrs[i]
 			id := ids[i]
-			_, qErr := bobRPC.Query(addr, "ping", nil, func(res kmsg.Msg) {
+			return bobRPC.Query(addr, "ping", nil, func(res kmsg.Msg) {
 				if res.R.V != string(id) {
 					t.Errorf("Incorrect value received, wanted=%v, got=%v", string(id), res.R.V)
 				}
 				done <- res.E
 			})
-			return qErr
 		})
 		if len(errs) != 0 {
 			t.Errorf("wanted len(errs)=0, got errs=%v", errs)
@@ -176,11 +175,10 @@ func TestKRPC(t *testing.T) {
 			&net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: port + 4},
 		}
 		now := time.Now()
-		errs := bobRPC.Batch(len(addrs), func(i int, done chan<- error) error {
-			_, qErr := bobRPC.Query(addrs[i], "ping", nil, func(res kmsg.Msg) {
+		errs := bobRPC.Batch(len(addrs), func(i int, done chan<- error) (*socket.Tx, error) {
+			return bobRPC.Query(addrs[i], "ping", nil, func(res kmsg.Msg) {
 				done <- res.E
 			})
-			return qErr
 		})
 		d := time.Now().Sub(now)
 		min := timeout
@@ -200,8 +198,8 @@ func TestKRPC(t *testing.T) {
 		defer bob.Close()
 		bobRPC := New(bob, KRPCConfig{})
 
-		errs := bobRPC.Batch(2, func(i int, done chan<- error) error {
-			return errors.New("nop")
+		errs := bobRPC.Batch(2, func(i int, done chan<- error) (*socket.Tx, error) {
+			return nil, errors.New("nop")
 		})
 		if len(errs) != 2 {
 			t.Errorf("wanted len(errs)=2, got errs=%v", errs)
@@ -229,11 +227,10 @@ func TestKRPC(t *testing.T) {
 		bobRPC := New(bob, KRPCConfig{})
 
 		addrs := []*net.UDPAddr{alice.Addr(), fred.Addr()}
-		errs := bobRPC.Batch(len(addrs), func(i int, done chan<- error) error {
-			_, qErr := bobRPC.Query(addrs[i], "ping", nil, func(res kmsg.Msg) {
+		errs := bobRPC.Batch(len(addrs), func(i int, done chan<- error) (*socket.Tx, error) {
+			return bobRPC.Query(addrs[i], "ping", nil, func(res kmsg.Msg) {
 				done <- res.E
 			})
-			return qErr
 		})
 		if len(errs) != 2 {
 			t.Errorf("wanted len(errs)=2, got errs=%v", errs)

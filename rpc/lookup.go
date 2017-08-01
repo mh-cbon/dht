@@ -21,8 +21,8 @@ func (k *KRPC) seedTable(target []byte, boostrapTable *bucket.TSBucket, table *b
 	if len(startupContacts) == 0 {
 		return fmt.Errorf("Bootstrap table failed %x %v", string(target), startupContacts)
 	}
-	errs := k.BatchNodes(startupContacts, func(contact bucket.ContactIdentifier, done chan<- error) error {
-		_, qErr := seedF(contact, func(res kmsg.Msg) {
+	errs := k.BatchNodes(startupContacts, func(contact bucket.ContactIdentifier, done chan<- error) (*socket.Tx, error) {
+		return seedF(contact, func(res kmsg.Msg) {
 			if res.E == nil && res.Y == "r" && res.R != nil {
 				for _, node := range k.goodNodes(res.R.Nodes) {
 					table.Add(node)
@@ -30,7 +30,6 @@ func (k *KRPC) seedTable(target []byte, boostrapTable *bucket.TSBucket, table *b
 			}
 			done <- res.E
 		})
-		return qErr
 	})
 	if len(errs) == len(startupContacts) {
 		return fmt.Errorf("All bootstrap nodes failed: %v", errs)
@@ -70,8 +69,8 @@ func (k *KRPC) LookupPeers(target []byte, boostrapTable *bucket.TSBucket) error 
 			break
 		}
 		hops++
-		k.BatchNodes(contacts, func(contact bucket.ContactIdentifier, done chan<- error) error {
-			_, qErr := k.FindNode(contact.GetAddr(), target, func(res kmsg.Msg) {
+		k.BatchNodes(contacts, func(contact bucket.ContactIdentifier, done chan<- error) (*socket.Tx, error) {
+			return k.FindNode(contact.GetAddr(), target, func(res kmsg.Msg) {
 				if res.E == nil && res.Y == "r" && res.R != nil && res.SenderID() == string(contact.GetID()) {
 					for _, node := range k.goodNodes(res.R.Nodes) {
 						table.Add(node)
@@ -79,7 +78,6 @@ func (k *KRPC) LookupPeers(target []byte, boostrapTable *bucket.TSBucket) error 
 				}
 				done <- res.E
 			})
-			return qErr
 		})
 	}
 
@@ -118,8 +116,8 @@ func (k *KRPC) LookupStores(target []byte, boostrapTable *bucket.TSBucket) error
 			break
 		}
 		hops++
-		k.BatchNodes(contacts, func(contact bucket.ContactIdentifier, done chan<- error) error {
-			_, qErr := k.Get(contact.GetAddr(), target, func(res kmsg.Msg) {
+		k.BatchNodes(contacts, func(contact bucket.ContactIdentifier, done chan<- error) (*socket.Tx, error) {
+			return k.Get(contact.GetAddr(), target, func(res kmsg.Msg) {
 				if res.E == nil && res.Y == "r" && res.R != nil && res.SenderID() == string(contact.GetID()) {
 					for _, node := range k.goodNodes(res.R.Nodes) {
 						table.Add(node)
@@ -127,7 +125,7 @@ func (k *KRPC) LookupStores(target []byte, boostrapTable *bucket.TSBucket) error
 				}
 				done <- res.E
 			})
-			return qErr
+			// k.addBadNode(addr)
 		})
 	}
 

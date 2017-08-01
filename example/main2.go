@@ -37,20 +37,22 @@ func main() {
 		// info_hash and target are hex string.
 		target := "faf5c61ddcc5e8a2dabede0f3b482cd9aea9434c"
 		targetID, _ := dht.HexToBytes(target)
-		fmt.Printf("Performing lookup request for%x\n", targetID)
-		lookupErr := d.LookupStores(target, nil)
-		if lookupErr != nil {
-			return lookupErr
-		}
+		for {
+			fmt.Printf("Performing lookup request for %x\n", targetID)
+			lookupErr := d.LookupStores(target, nil)
+			if lookupErr != nil {
+				return lookupErr
+			}
 
-		// then get the closest peers for that target
-		closest, err := d.ClosestStores(target, 16)
-		if err != nil {
-			return err
-		}
-		fmt.Printf("Found %v nodes close to %x\n", len(closest), targetID)
-		for _, c := range closest {
-			fmt.Printf("%-24v %x %v\n", c.GetAddr(), c.GetID(), bucket.Distance(targetID, c.GetID()))
+			// then get the closest peers for that target
+			closest, err := d.ClosestStores(target, 16)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("Found %v nodes close to %x\n", len(closest), targetID)
+			for _, c := range closest {
+				fmt.Printf("%-24v %x %v\n", c.GetAddr(), c.GetID(), bucket.Distance(targetID, c.GetID()))
+			}
 		}
 		return nil
 	}
