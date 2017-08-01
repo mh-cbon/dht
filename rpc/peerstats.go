@@ -121,6 +121,10 @@ func (p *PeerStats) GoodNodes(nodes []kmsg.NodeInfo) []bucket.ContactIdentifier 
 	return ret
 }
 
+func (p *PeerStats) Clear() {
+	p.stats = map[string]*PeerStat{}
+}
+
 func NewTSPeerStatsLogger(store *PeerStats) *TSPeerStats {
 	return &TSPeerStats{store: store, mu: &sync.RWMutex{}}
 }
@@ -186,6 +190,12 @@ func (t *TSPeerStats) IsBadNode(addr *net.UDPAddr) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return t.store.IsBadNode(addr)
+}
+
+func (t *TSPeerStats) Clear() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.store.Clear()
 }
 
 type PeerStat struct {

@@ -8,7 +8,6 @@ import (
 	"github.com/mh-cbon/dht/bucket"
 	"github.com/mh-cbon/dht/kmsg"
 	"github.com/mh-cbon/dht/socket"
-	boom "github.com/tylertreat/BoomFilters"
 )
 
 // SocketRPCer is a socket capable of query/answer rpc.
@@ -51,10 +50,9 @@ type KRPC struct {
 	socket               SocketRPCer
 	mu                   *sync.RWMutex
 	onNodeTimeout        Timeout
-	badNodes             *boom.BloomFilter // badNodes to be cleaned from the lookup tables, used by bep43 to ban ro nodes
-	bootstrap            *bucket.TSBucket  // our location in the network we are connected to.
-	lookupTableForPeers  *TSTableStore     // bep05
-	lookupTableForStores *TSTableStore     // bep44
+	bootstrap            *bucket.TSBucket // our location in the network we are connected to.
+	lookupTableForPeers  *TSTableStore    // bep05
+	lookupTableForStores *TSTableStore    // bep44
 	peerStatsLogger      PeerStatLogger
 }
 
@@ -70,7 +68,6 @@ func New(s SocketRPCer, c KRPCConfig) *KRPC {
 		config:               c,
 		socket:               s,
 		mu:                   &sync.RWMutex{},
-		badNodes:             boom.NewBloomFilter(3500, 0.5),
 		lookupTableForPeers:  NewTSStore(),
 		lookupTableForStores: NewTSStore(),
 		peerStatsLogger:      NewTSPeerStatsLogger(NewPeerStatsLogger()),
@@ -99,7 +96,8 @@ func (k *KRPC) OnTimeout(t Timeout) *KRPC {
 // Close the socket.
 func (k *KRPC) Close() error {
 	k.onNodeTimeout = nil
-	k.badNodes.Reset()
+	// k.badNodes.Reset()
+	k.peerStatsLogger.Clear()
 	if k.bootstrap != nil {
 		k.bootstrap.Clear()
 	}
@@ -147,6 +145,7 @@ type PeerStatLogger interface {
 	GoodNodes(nodes []kmsg.NodeInfo) []bucket.ContactIdentifier
 	IsBadNode(addr *net.UDPAddr) bool
 	AddBadNode(addr *net.UDPAddr)
+	Clear()
 }
 
 // SetPeerStatsLogger peer stats logger.
