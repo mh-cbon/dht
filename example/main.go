@@ -1,3 +1,4 @@
+// to test speed...
 package main
 
 import (
@@ -22,20 +23,14 @@ func main1() {
 	q := 8
 
 	sock := socket.NewConcurrent(q, sockConfig)
-	// sock.OnSendQuery = logger.Std.OnSendQuery
-	// sock.OnRcvQuery = logger.Std.OnRcvQuery
-	// sock.OnSendResponse = logger.Std.OnSendResponse
-	// sock.OnRcvResponse = logger.Std.OnRcvResponse
+	// sock.AddLogger(logger.Text(log.Printf))
 	kconfig := rpc.KRPCConfig{}.WithConcurrency(8).WithK(20)
 	bob := rpc.New(sock, kconfig)
 
 	listening := func(d *dht.DHT) error {
 		sockConfig2 := socket.RPCConfig{}.WithAddr("127.0.0.1:9569").WithID([]byte("alice"))
 		sock2 := socket.NewConcurrent(q, sockConfig2)
-		// sock2.OnSendQuery = logger.Std.OnSendQuery
-		// sock2.OnRcvQuery = logger.Std.OnRcvQuery
-		// sock2.OnSendResponse = logger.Std.OnSendResponse
-		// sock2.OnRcvResponse = logger.Std.OnRcvResponse
+		// sock2.AddLogger(logger.Text(log.Printf))
 		alice := rpc.New(sock2, kconfig)
 		go alice.Listen(nil)
 		remote := bob.Addr()

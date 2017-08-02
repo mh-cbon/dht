@@ -1,3 +1,4 @@
+// to test repetitive single lookup.
 package main
 
 import (
@@ -18,7 +19,7 @@ func main() {
 
 	listen := func(d *dht.DHT) error {
 		if v {
-			d.SetLog(logger.Std)
+			d.AddLogger(logger.Text(log.Printf))
 		}
 		fmt.Println("Running bootstrap...")
 		err := d.BootstrapAuto(nil, bootstrap.Public)

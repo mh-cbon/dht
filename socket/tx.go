@@ -62,8 +62,7 @@ func (s *TxServer) HandleResponse(m kmsg.Msg, addr *net.UDPAddr) (*Tx, error) {
 	defer s.mu.Unlock()
 	tx := s.findResponseTransaction(m.T, addr)
 	if tx == nil {
-		err := fmt.Errorf("transaction id unknown: %q %q", addr, m.T)
-		return nil, err
+		return nil, fmt.Errorf("transaction id unknown: %q %q", addr, m.T)
 	}
 	go tx.handleResponse(m)
 	s.deleteTransaction(tx)
@@ -106,7 +105,7 @@ func (s *TxServer) loop(queryTimeout time.Duration) {
 				return
 			}
 			if tx.hasTimeout(queryTimeout) {
-				msg := kmsg.Msg{T: tx.id, E: &kmsg.ErrorTimeout, Y: "q"}
+				msg := kmsg.Msg{T: tx.txID, E: &kmsg.ErrorTimeout, Y: "q"}
 				go tx.handleResponse(msg)
 				s.deleteTransaction(tx)
 			}
@@ -138,7 +137,7 @@ func (s *TxServer) deleteTransaction(t *Tx) {
 
 func (s *TxServer) addTransaction(t *Tx) error {
 	if _, ok := s.transactions[t.key()]; ok {
-		return fmt.Errorf("transaction not unique %q %q", t.remote, t.id)
+		return fmt.Errorf("transaction not unique %q %q", t.remote, t.txID)
 	}
 	s.transactions[t.key()] = t
 	return nil
@@ -152,7 +151,7 @@ type txKey struct {
 
 // Tx handles query/response sequence with timeout.
 type Tx struct {
-	id      string
+	txID    string
 	remote  *net.UDPAddr
 	started time.Time
 	// query      map[string]interface{}
@@ -166,9 +165,10 @@ func newTx() *Tx {
 }
 
 // Setup the TX.
-func (t *Tx) Setup(addr *net.UDPAddr, id string, onResponse func(kmsg.Msg)) *Tx {
+func (t *Tx) Setup(addr *net.UDPAddr, txID string, onResponse func(kmsg.Msg)) *Tx {
 	t.onResponse = onResponse
-	t.id = id
+	// t.query = query
+	t.txID = txID
 	t.remote = addr
 	t.started = time.Now()
 	return t
@@ -179,7 +179,7 @@ func (t *Tx) Reset() {
 	t.onResponse = nil
 	// t.query = nil
 	t.handled = nil
-	t.id = ""
+	t.txID = ""
 	t.remote = nil
 	t.started = time.Now()
 }
@@ -187,7 +187,7 @@ func (t *Tx) Reset() {
 func (t *Tx) key() txKey {
 	return txKey{
 		t.remote.String(),
-		t.id,
+		t.txID,
 	}
 }
 

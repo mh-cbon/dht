@@ -7,7 +7,9 @@ import (
 
 	"github.com/mh-cbon/dht/bucket"
 	"github.com/mh-cbon/dht/kmsg"
+	"github.com/mh-cbon/dht/logger"
 	"github.com/mh-cbon/dht/socket"
+	"github.com/mh-cbon/dht/stats"
 )
 
 // SocketRPCer is a socket capable of query/answer rpc.
@@ -20,7 +22,9 @@ type SocketRPCer interface {
 	Addr() *net.UDPAddr
 	SetID(id string)
 	ID() string
-	SetLog(l socket.LogReceiver)
+	GetPeersStats() *stats.TSPeers
+	AddLogger(l logger.LogReceiver)
+	RmLogger(l logger.LogReceiver) bool
 }
 
 // KRPCConfig configures the rpc interface.
@@ -46,14 +50,13 @@ type Timeout func(q string, a map[string]interface{}, remote *net.UDPAddr, e kms
 
 // KRPC is rpc on kadmelia table.
 type KRPC struct {
-	config               KRPCConfig
-	socket               SocketRPCer
-	mu                   *sync.RWMutex
-	onNodeTimeout        Timeout
+	config KRPCConfig
+	socket SocketRPCer
+	mu     *sync.RWMutex
+	// onNodeTimeout        Timeout
 	bootstrap            *bucket.TSBucket // our location in the network we are connected to.
 	lookupTableForPeers  *TSTableStore    // bep05
 	lookupTableForStores *TSTableStore    // bep44
-	peerStatsLogger      PeerStatLogger
 }
 
 // New Kadmelia rpc of socket.
@@ -70,34 +73,51 @@ func New(s SocketRPCer, c KRPCConfig) *KRPC {
 		mu:                   &sync.RWMutex{},
 		lookupTableForPeers:  NewTSStore(),
 		lookupTableForStores: NewTSStore(),
-		peerStatsLogger:      NewTSPeerStatsLogger(NewPeerStatsLogger()),
 	}
-	ret.OnTimeout(nil) // force create a callback to cleanup lookup tables.
+	if !s.GetPeersStats().OnPeerTimeout("dht.rpc", ret.RmNodeFromLookupTables) {
+		panic("nop not good, fix that")
+	}
+	// ret.OnTimeout(nil) // force create a callback to cleanup lookup tables. //todo: re visit this.
 	return ret
 }
 
-// SetLog callbacks.
-func (k *KRPC) SetLog(l socket.LogReceiver) {
-	k.socket.SetLog(l)
+// GetPeersStats of this rpc.
+func (k *KRPC) GetPeersStats() *stats.TSPeers {
+	return k.socket.GetPeersStats()
+}
+
+// AddLogger of this rpc.
+func (k *KRPC) AddLogger(l logger.LogReceiver) {
+	k.socket.AddLogger(l)
+}
+
+// RmLogger of this rpc.
+func (k *KRPC) RmLogger(l logger.LogReceiver) bool {
+	return k.socket.RmLogger(l)
+}
+
+// RmNodeFromLookupTables removes given node from lookup table.
+func (k *KRPC) RmNodeFromLookupTables(remote *net.UDPAddr, queriedQ string, queriedA map[string]interface{}, response kmsg.Msg) {
+	k.lookupTableForPeers.RemoveNode(remote)
+	k.lookupTableForStores.RemoveNode(remote)
 }
 
 // OnTimeout registers a callback called when a node timeout.
-func (k *KRPC) OnTimeout(t Timeout) *KRPC {
-	k.onNodeTimeout = func(q string, a map[string]interface{}, node *net.UDPAddr, err kmsg.Error) {
-		k.lookupTableForPeers.RemoveNode(node)
-		k.lookupTableForStores.RemoveNode(node)
-		if t != nil {
-			t(q, a, node, err)
-		}
-	}
-	return k
-}
+// func (k *KRPC) OnTimeout(t Timeout) *KRPC { //todo: check.
+// 	k.onNodeTimeout = func(q string, a map[string]interface{}, node *net.UDPAddr, err kmsg.Error) {
+// 		k.lookupTableForPeers.RemoveNode(node)
+// 		k.lookupTableForStores.RemoveNode(node)
+// 		if t != nil {
+// 			t(q, a, node, err)
+// 		}
+// 	}
+// 	return k
+// }
 
 // Close the socket.
 func (k *KRPC) Close() error {
-	k.onNodeTimeout = nil
-	// k.badNodes.Reset()
-	k.peerStatsLogger.Clear()
+	// k.onNodeTimeout = nil
+	k.GetPeersStats().OffPeerTimeout("dht.rpc")
 	if k.bootstrap != nil {
 		k.bootstrap.Clear()
 	}
@@ -108,9 +128,8 @@ func (k *KRPC) Close() error {
 
 // Listen the socket.
 func (k *KRPC) Listen(h socket.QueryHandler) error {
-	h = SecuredQueryOnly(k, BanRoNodes(k, h))
+	h = SecuredQueryOnly(k, h)
 	return k.socket.Listen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
-		go k.peerStatsLogger.OnRcvQuery(remote, msg)
 		return h(msg, remote)
 	})
 }
@@ -133,36 +152,14 @@ func (k *KRPC) ID() string {
 	return k.socket.ID()
 }
 
-// PeerStatLogger is a kind of logger to establish peer statistics.
-type PeerStatLogger interface {
-	OnSendQuery(remote *net.UDPAddr, q string, a map[string]interface{})
-	OnRcvQuery(remote *net.UDPAddr, query kmsg.Msg)
-	OnSendResponse(remote *net.UDPAddr, txID string, a kmsg.Return)
-	OnSendError(remote *net.UDPAddr, txID string, e kmsg.Error)
-	OnRcvResponse(remote *net.UDPAddr, fromQ string, fromA map[string]interface{}, response kmsg.Msg)
-	IsTimeout(remote *net.UDPAddr) bool
-	IsActive(remote *net.UDPAddr) bool
-	GoodNodes(nodes []kmsg.NodeInfo) []bucket.ContactIdentifier
-	IsBadNode(addr *net.UDPAddr) bool
-	AddBadNode(addr *net.UDPAddr)
-	Clear()
-}
-
-// SetPeerStatsLogger peer stats logger.
-func (k *KRPC) SetPeerStatsLogger(l PeerStatLogger) {
-	k.peerStatsLogger = l
-}
-
 // Query a node.
 func (k *KRPC) Query(node *net.UDPAddr, q string, a map[string]interface{}, onResponse func(kmsg.Msg)) (*socket.Tx, error) {
-	go k.peerStatsLogger.OnSendQuery(node, q, a)
 	return k.socket.Query(node, q, a, func(res kmsg.Msg) {
-		if res.E != nil && k.onNodeTimeout != nil {
-			if res.E.Code == 201 {
-				go k.onNodeTimeout(q, a, node, *res.E)
-			}
-		}
-		go k.peerStatsLogger.OnRcvResponse(node, q, a, res)
+		// if res.E != nil && k.onNodeTimeout != nil {
+		// 	if res.E.Code == 201 {
+		// 		go k.onNodeTimeout(q, a, node, *res.E)
+		// 	}
+		// }
 		if onResponse != nil {
 			onResponse(res)
 		}
@@ -171,13 +168,11 @@ func (k *KRPC) Query(node *net.UDPAddr, q string, a map[string]interface{}, onRe
 
 // Respond to node.
 func (k *KRPC) Respond(node *net.UDPAddr, txID string, a kmsg.Return) error {
-	go k.peerStatsLogger.OnSendResponse(node, txID, a)
 	return k.socket.Respond(node, txID, a)
 }
 
 // Error respond an error to node.
 func (k *KRPC) Error(node *net.UDPAddr, txID string, e kmsg.Error) error {
-	go k.peerStatsLogger.OnSendError(node, txID, e)
 	return k.socket.Error(node, txID, e)
 }
 

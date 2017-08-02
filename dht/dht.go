@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/mh-cbon/dht/kmsg"
+	"github.com/mh-cbon/dht/logger"
 	"github.com/mh-cbon/dht/rpc"
 	"github.com/mh-cbon/dht/socket"
 	"github.com/mh-cbon/dht/token"
@@ -57,12 +58,15 @@ func New(secret []byte, r *rpc.KRPC) *DHT {
 		bep44TokenStore: token.NewTSStore(),
 		bep44ValueStore: NewTSValueStore(),
 	}
-	ret.rpc.OnTimeout(func(q string, a map[string]interface{}, node *net.UDPAddr, err kmsg.Error) {
-		ret.peerStore.RemPeer(Peer{IP: node.IP, Port: node.Port})
-		ret.bep05TokenStore.RmByAddr(node)
-		ret.bep44TokenStore.RmByAddr(node)
-	})
+	ret.rpc.GetPeersStats().OnPeerTimeout("dht.dht", ret.RmNodeFromStores)
 	return ret
+}
+
+// RmNodeFromStores removes given node from stores.
+func (d *DHT) RmNodeFromStores(remote *net.UDPAddr, queriedQ string, queriedA map[string]interface{}, response kmsg.Msg) {
+	d.peerStore.RemPeer(Peer{IP: remote.IP, Port: remote.Port})
+	d.bep05TokenStore.RmByAddr(remote)
+	d.bep44TokenStore.RmByAddr(remote)
 }
 
 // Listen to the socket and execute given func if the listen operation succeeded.
@@ -89,14 +93,20 @@ func (d *DHT) ID() string {
 	return d.rpc.ID()
 }
 
-// SetLog callbacks.
-func (d *DHT) SetLog(l socket.LogReceiver) {
-	d.rpc.SetLog(l)
+// AddLogger of this rpc.
+func (d *DHT) AddLogger(l logger.LogReceiver) {
+	d.rpc.AddLogger(l)
+}
+
+// RmLogger of this rpc.
+func (d *DHT) RmLogger(l logger.LogReceiver) bool {
+	return d.rpc.RmLogger(l)
 }
 
 // Close the dht and its socket.
 func (d *DHT) Close() error {
 	// d.tokenServer.Clear()
+	d.rpc.GetPeersStats().OffPeerTimeout("dht.dht")
 	d.peerStore.Clear()
 	d.bep05TokenStore.Clear()
 	d.bep44TokenStore.Clear()
@@ -123,22 +133,22 @@ func (d *DHT) TokenGet(remote net.UDPAddr) string {
 func (d *DHT) handleIncomingQuery(msg kmsg.Msg, remote *net.UDPAddr) error {
 	q := msg.Q
 
-	if q == rpc.QFindNode {
+	if q == kmsg.QFindNode {
 		return d.OnFindNode(msg, remote)
 
-	} else if q == rpc.QPing {
+	} else if q == kmsg.QPing {
 		return d.OnPing(msg, remote)
 
-	} else if q == rpc.QAnnouncePeer {
+	} else if q == kmsg.QAnnouncePeer {
 		return d.OnAnnouncePeer(msg, remote)
 
-	} else if q == rpc.QGetPeers {
+	} else if q == kmsg.QGetPeers {
 		return d.OnGetPeers(msg, remote)
 
-	} else if q == rpc.QGet {
+	} else if q == kmsg.QGet {
 		return d.OnGet(msg, remote)
 
-	} else if q == rpc.QPut {
+	} else if q == kmsg.QPut {
 		return d.OnPut(msg, remote)
 
 	}

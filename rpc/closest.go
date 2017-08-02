@@ -63,3 +63,18 @@ func (k *KRPC) ClosestStores(target []byte, n uint) ([]bucket.ContactIdentifier,
 	}
 	return table.Closest(target, n), nil
 }
+
+// ReleaseTableByID releases resources associated with this lookup id.
+func (k *KRPC) ReleaseTableByID(target []byte) error {
+	if table, found := k.lookupTableForStores.Get(target); found {
+		table.Clear()
+		k.lookupTableForStores.Rm(target)
+		return nil
+	}
+	if table, found := k.lookupTableForPeers.Get(target); found {
+		table.Clear()
+		k.lookupTableForPeers.Rm(target)
+		return nil
+	}
+	return fmt.Errorf("table not found for %x", string(target))
+}

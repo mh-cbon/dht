@@ -58,7 +58,7 @@ func TestBep42(t *testing.T) {
 		err := SecuredQueryOnly(bobRPC, func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			return nil
 		})(
-			kmsg.Msg{Q: QGetPeers},
+			kmsg.Msg{Q: kmsg.QGetPeers},
 			&net.UDPAddr{IP: net.ParseIP("95.12.45.2"), Port: 8888},
 		)
 		wantErr(t, fmt.Errorf("Invalid get_peers packet: mising Arguments"), err)
@@ -66,7 +66,7 @@ func TestBep42(t *testing.T) {
 		err2 := SecuredQueryOnly(bobRPC, func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			return nil
 		})(
-			kmsg.Msg{Q: QGetPeers, A: &kmsg.MsgArgs{ID: string(bob.GetID())}},
+			kmsg.Msg{Q: kmsg.QGetPeers, A: &kmsg.MsgArgs{ID: string(bob.GetID())}},
 			&net.UDPAddr{IP: net.ParseIP("95.12.45.2"), Port: 8888},
 		)
 		if err2 == nil {

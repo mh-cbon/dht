@@ -10,6 +10,7 @@ import (
 	"github.com/mh-cbon/dht/socket"
 )
 
+//todo : move to socket package.
 func TestBep43(t *testing.T) {
 	timeout := time.Millisecond * 10
 	port := 9686
@@ -55,7 +56,7 @@ func TestBep43(t *testing.T) {
 		alice.ReadOnly(true)
 		alice.Query(bob.Addr(), "ping", nil, func(res kmsg.Msg) {})
 		<-time.After(timeout * 2)
-		if bobRPC.isBadNode(alice.Addr()) == false {
+		if bobRPC.IsBadNode(alice.Addr()) == false {
 			t.Errorf("wanted bob to record alice (%q) as bad node", alice.Addr().String())
 		}
 	})

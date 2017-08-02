@@ -23,3 +23,12 @@ func (k *DHT) LookupStores(hexTarget string, boostrapTable *bucket.TSBucket) err
 	}
 	return k.rpc.LookupStores(target, boostrapTable)
 }
+
+// ReleaseLookupTable releases resources associated with this lookup id.
+func (k *DHT) ReleaseLookupTable(hexTarget string) error {
+	target, e := hex.DecodeString(hexTarget)
+	if e != nil {
+		return e
+	}
+	return k.rpc.ReleaseTableByID(target)
+}

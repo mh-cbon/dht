@@ -32,7 +32,7 @@ func SecuredQueryOnly(k *KRPC, f socket.QueryHandler) socket.QueryHandler {
 			return fmt.Errorf("Invalid get_peers packet: mising Arguments")
 		}
 		q := msg.Q
-		if (q == QGet || q == QGetPeers) && security.NodeIDSecure(msg.A.ID, remote.IP) == false {
+		if (q == kmsg.QGet || q == kmsg.QGetPeers) && security.NodeIDSecure(msg.A.ID, remote.IP) == false {
 			//tdo: check about that with stat store
 			// k.addBadNode(remote)
 			k.lookupTableForPeers.RemoveNode(remote)

@@ -31,7 +31,7 @@ func main() {
 
 	listen := func(d *dht.DHT) error {
 		if v {
-			d.SetLog(logger.Std)
+			d.AddLogger(logger.Text(log.Printf))
 		}
 		fmt.Println("Running bootstrap...")
 		err := d.BootstrapAuto(nil, bootstrap.Public)
@@ -46,17 +46,18 @@ func main() {
 
 		fmt.Println("Boostrap done...")
 
-		// you can run a lookup to find nodes matching an info_hash or target.
-		// info_hash and target are hex string.
+		// info_hash / target are hex string.
 		target := "faf5c61ddcc5e8a2dabede0f3b482cd9aea9434c"
 		targetID, _ := dht.HexToBytes(target)
+
+		// you can use them to perform lookup on the dht.
 		fmt.Printf("Performing lookup request for%x\n", targetID)
 		lookupErr := d.LookupStores(target, nil)
 		if lookupErr != nil {
 			return lookupErr
 		}
 
-		// then get the closest peers for that target
+		// a lookup gives you access to the nth closest nodes to that target / info_hash
 		closest, err := d.ClosestStores(target, 16)
 		if err != nil {
 			return err

@@ -10,24 +10,11 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-// QGet is the "get" query verb.
-var QGet = "get"
-
 // Get sends an immutable "get" query.
 func (k *KRPC) Get(addr *net.UDPAddr, target []byte, onResponse func(kmsg.Msg)) (*socket.Tx, error) {
 	a := map[string]interface{}{"target": target}
 	// bep42: guards against bad node id
-	return k.Query(addr, QGet, a, SecuredResponseOnly(addr, func(msg kmsg.Msg) {
-		if msg.E != nil {
-			//tdo: check about that with stat store
-			// avoid putting that node into the lookup tables.
-			// k.addBadNode(addr)
-			k.lookupTableForStores.RemoveNode(addr)
-		}
-		if onResponse != nil {
-			onResponse(msg)
-		}
-	}))
+	return k.Query(addr, kmsg.QGet, a, SecuredResponseOnly(addr, onResponse))
 }
 
 //CheckGetResponse for given seq and salt.
@@ -102,11 +89,8 @@ func EncodePutValue(val, salt string, seq int) (string, error) {
 func (k *KRPC) MGet(addr *net.UDPAddr, target []byte, seq int, onResponse func(kmsg.Msg)) (*socket.Tx, error) {
 	a := map[string]interface{}{"target": target, "seq": seq}
 	// bep42: guards against bad node id
-	return k.Query(addr, QGet, a, SecuredResponseOnly(addr, onResponse))
+	return k.Query(addr, kmsg.QGet, a, SecuredResponseOnly(addr, onResponse))
 }
-
-// QPut is the "put" query verb.
-var QPut = "put"
 
 // Put sends an immutable "put" query.
 func (k *KRPC) Put(addr *net.UDPAddr, value, writeToken string, onResponse func(kmsg.Msg)) (*socket.Tx, error) {
@@ -114,7 +98,7 @@ func (k *KRPC) Put(addr *net.UDPAddr, value, writeToken string, onResponse func(
 		"token": writeToken,
 		"v":     value,
 	}
-	return k.Query(addr, QPut, a, onResponse)
+	return k.Query(addr, kmsg.QPut, a, onResponse)
 }
 
 // MPut sends an mutable "put" query.
@@ -128,5 +112,5 @@ func (k *KRPC) MPut(addr *net.UDPAddr, value string, pbk []byte, sig []byte, seq
 		"cas":   cas,
 		"salt":  salt,
 	}
-	return k.Query(addr, QPut, a, onResponse)
+	return k.Query(addr, kmsg.QPut, a, onResponse)
 }

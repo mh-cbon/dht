@@ -110,18 +110,18 @@ func TestKRPC(t *testing.T) {
 			Port: 6556,
 		}
 
-		bobRPC.OnTimeout(func(q string, a map[string]interface{}, remote *net.UDPAddr, e kmsg.Error) {
+		bobRPC.GetPeersStats().OnPeerTimeout("test", func(remote *net.UDPAddr, queriedQ string, queriedA map[string]interface{}, response kmsg.Msg) {
 			if remote.String() != addr.String() {
 				t.Errorf("wanted q=%v, got=%v", addr.String(), remote.String())
 			}
-			if q != "ping" {
-				t.Errorf("wanted q=%v, got=%v", "ping", q)
+			if queriedQ != "ping" {
+				t.Errorf("wanted q=%v, got=%v", "ping", queriedQ)
 			}
-			if a != nil {
-				t.Errorf("wanted a=%v, got=%v", nil, a)
+			if queriedA != nil {
+				t.Errorf("wanted a=%v, got=%v", nil, queriedA)
 			}
-			if e.Code != 201 {
-				t.Errorf("wanted e.Code=%v, got=%v", 201, e.Code)
+			if response.E.Code != 201 {
+				t.Errorf("wanted e.Code=%v, got=%v", 201, response.E.Code)
 			}
 		})
 

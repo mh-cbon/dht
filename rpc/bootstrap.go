@@ -9,6 +9,7 @@ import (
 	"github.com/mh-cbon/dht/bucket"
 	"github.com/mh-cbon/dht/kmsg"
 	"github.com/mh-cbon/dht/socket"
+	"github.com/mh-cbon/dht/stats"
 	boom "github.com/tylertreat/BoomFilters"
 )
 
@@ -180,31 +181,36 @@ func (k *KRPC) notQueried(queriedNodes *boom.BloomFilter, contacts []bucket.Cont
 	return ret
 }
 
-func (k *KRPC) goodNodes(nodes []kmsg.NodeInfo) []bucket.ContactIdentifier {
-	return k.peerStatsLogger.GoodNodes(nodes)
-	// ret := []bucket.ContactIdentifier{}
-	// if nodes == nil {
-	// 	return ret
-	// }
-	// k.mu.Lock()
-	// defer k.mu.Unlock()
-	// for _, n := range nodes {
-	// 	if !k.isBadNode(n.Addr) {
-	// 		ret = append(ret, NewNode(n.ID, n.Addr))
-	// 	}
-	// }
-	// return ret
+func (k *KRPC) goodNodes(nodes []kmsg.NodeInfo) (ret []bucket.ContactIdentifier) {
+	if nodes == nil {
+		return ret
+	}
+	k.GetPeersStats().Transact(func(p *stats.Peers) {
+		for _, n := range nodes {
+			if !p.IsBanned(n.Addr) &&
+				!p.IsTimeout(n.Addr) &&
+				!p.IsRO(n.Addr) &&
+				p.LastIDValid(n.Addr) {
+				ret = append(ret, NewNode(n.ID, n.Addr)) //todo: consider detect nodes being queried.
+			}
+		}
+	})
+	return ret
 }
 
 // handleTablePing handles the ping event emitted on the table,
 // it is very standard thing about removing useless nodes, adding new ones if positions are available.
 func (k *KRPC) handleTablePing(table *bucket.TSBucket) bucket.PingFunc {
 	return func(oldContacts []bucket.ContactIdentifier, newishContact bucket.ContactIdentifier) {
-		errs := k.BatchNodes(oldContacts, func(c bucket.ContactIdentifier, done chan<- error) (*socket.Tx, error) {
-			if k.peerStatsLogger.IsActive(c.GetAddr()) {
-				done <- nil
-				return nil, nil
+		todoContacts := []bucket.ContactIdentifier{}
+		k.GetPeersStats().Transact(func(p *stats.Peers) {
+			for _, o := range oldContacts {
+				if p.IsActive(o.GetAddr()) && !p.IsTimeout(o.GetAddr()) {
+					todoContacts = append(todoContacts, o)
+				}
 			}
+		})
+		errs := k.BatchNodes(todoContacts, func(c bucket.ContactIdentifier, done chan<- error) (*socket.Tx, error) {
 			return k.Ping(c.GetAddr(), func(msg kmsg.Msg) {
 				if msg.E != nil {
 					table.Remove(c.GetID())

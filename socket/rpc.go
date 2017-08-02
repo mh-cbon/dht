@@ -3,6 +3,7 @@ package socket
 import (
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"sync"
 	"time"
@@ -10,6 +11,8 @@ import (
 	"github.com/anacrolix/torrent/iplist"
 	"github.com/anacrolix/torrent/util"
 	"github.com/mh-cbon/dht/kmsg"
+	"github.com/mh-cbon/dht/logger"
+	"github.com/mh-cbon/dht/stats"
 )
 
 // KrpcPacketEncoder reads/writes kmsg.Message.
@@ -70,12 +73,15 @@ func New(c RPCConfig) *RPC {
 		KrpcPacketEncoder: &Bencoded{
 			Server: NewServer(c.ServerConfig),
 		},
-		tx:          NewTxServer(c.QueryTimeout),
-		id:          c.id,
-		ipBlockList: c.ipBlockList,
-		mu:          &sync.RWMutex{},
-		readOnly:    c.readOnly,
+		tx:              NewTxServer(c.QueryTimeout),
+		id:              c.id,
+		ipBlockList:     c.ipBlockList,
+		mu:              &sync.RWMutex{},
+		readOnly:        c.readOnly,
+		peerStatsLogger: stats.NewTSPeersLogger(stats.NewPeersLogger()),
+		logReceiver:     logger.NewMany(),
 	}
+	ret.logReceiver.Add(ret.peerStatsLogger)
 	return ret
 }
 
@@ -85,15 +91,13 @@ type QueryHandler func(msg kmsg.Msg, remote *net.UDPAddr) error
 // RPC is a query/writer of krpc messages with transaction support.
 type RPC struct {
 	KrpcPacketEncoder
-	id             string
-	tx             *TxServer
-	mu             *sync.RWMutex
-	ipBlockList    iplist.Ranger
-	OnSendQuery    func(remote *net.UDPAddr, p map[string]interface{})
-	OnRcvQuery     func(remote *net.UDPAddr, p kmsg.Msg)
-	OnSendResponse func(remote *net.UDPAddr, p map[string]interface{})
-	OnRcvResponse  func(remote *net.UDPAddr, p kmsg.Msg)
-	readOnly       bool
+	id              string
+	tx              *TxServer
+	mu              *sync.RWMutex
+	ipBlockList     iplist.Ranger
+	peerStatsLogger *stats.TSPeers
+	logReceiver     *logger.Many
+	readOnly        bool
 }
 
 // GetAddr implements bucket.ContactIdentifier.
@@ -121,20 +125,19 @@ func (s *RPC) ReadOnly(ro bool) {
 	s.readOnly = ro
 }
 
-// LogReceiver is an interface to define log callbacks.
-type LogReceiver interface {
-	OnSendQuery(remote *net.UDPAddr, p map[string]interface{})
-	OnRcvQuery(remote *net.UDPAddr, p kmsg.Msg)
-	OnSendResponse(remote *net.UDPAddr, p map[string]interface{})
-	OnRcvResponse(remote *net.UDPAddr, p kmsg.Msg)
+// GetPeersStats of this rpc.
+func (s *RPC) GetPeersStats() *stats.TSPeers {
+	return s.peerStatsLogger
 }
 
-// SetLog callbacks.
-func (s *RPC) SetLog(l LogReceiver) {
-	s.OnSendQuery = l.OnSendQuery
-	s.OnRcvQuery = l.OnRcvQuery
-	s.OnSendResponse = l.OnSendResponse
-	s.OnRcvResponse = l.OnRcvResponse
+// AddLogger of this rpc.
+func (s *RPC) AddLogger(l logger.LogReceiver) {
+	s.logReceiver.Add(l)
+}
+
+// RmLogger of this rpc.
+func (s *RPC) RmLogger(l logger.LogReceiver) bool {
+	return s.logReceiver.Rm(l)
 }
 
 // IPBlocked returns true when the node matches ipBlockList.
@@ -150,31 +153,33 @@ func (s *RPC) IPBlocked(ip net.IP) (blocked bool) {
 
 // Listen reads kmsg.Msg
 func (s *RPC) Listen(h QueryHandler) error {
-	return s.KrpcPacketEncoder.Listen(func(m kmsg.Msg, addr *net.UDPAddr) (err error) {
+	queryHandler := func(msg kmsg.Msg, remote *net.UDPAddr) error {
+		s.logReceiver.OnRcvQuery(remote, msg)
+		if h != nil {
+			return h(msg, remote)
+		}
+		return nil
+	}
+	return s.KrpcPacketEncoder.Listen(func(m kmsg.Msg, addr *net.UDPAddr) error {
 		isQ := m.Y == "q"
 		// bep43: When a DHT node enters the read-only state,
 		// It no longer responds to 'query' messages that it receives,
 		// that is messages containing a 'q' flag in the top-level dictionary.
 		if isQ && s.readOnly {
-			return
+			return nil
 		}
 		if s.IPBlocked(addr.IP) {
 			return fmt.Errorf("IP blocked %v", addr.String())
 		}
 		if isQ {
-			if s.OnRcvQuery != nil {
-				s.OnRcvQuery(addr, m)
-			}
-			if h != nil {
-				err = h(m, addr)
-			}
-			return
+			return queryHandler(m, addr)
 		}
-		if s.OnRcvResponse != nil {
-			s.OnRcvResponse(addr, m)
+		tx, err := s.tx.HandleResponse(m, addr)
+		if err != nil {
+			log.Println(tx)
+			s.logReceiver.OnTxNotFound(addr, m)
 		}
-		_, err = s.tx.HandleResponse(m, addr)
-		return
+		return err
 	})
 }
 
@@ -191,13 +196,19 @@ func (s *RPC) Query(addr *net.UDPAddr, q string, a map[string]interface{}, onRes
 	if s.IPBlocked(addr.IP) {
 		return nil, fmt.Errorf("IP blocked %v", addr.String())
 	}
-	tx, err := s.tx.Prepare(addr, onResponse, func(tx *Tx) error {
+	responseHandler := func(res kmsg.Msg) {
+		s.logReceiver.OnRcvResponse(addr, q, a, res)
+		if onResponse != nil {
+			onResponse(res)
+		}
+	}
+	tx, err := s.tx.Prepare(addr, responseHandler, func(tx *Tx) error {
 		if a == nil {
 			a = make(map[string]interface{}, 1)
 		}
 		a["id"] = s.id
 		p := map[string]interface{}{
-			"t": tx.id,
+			"t": tx.txID,
 			"y": "q",
 			"q": q,
 			"a": a,
@@ -210,9 +221,7 @@ func (s *RPC) Query(addr *net.UDPAddr, q string, a map[string]interface{}, onRes
 		if s.readOnly {
 			p["ro"] = 1
 		}
-		if s.OnSendQuery != nil {
-			s.OnSendQuery(addr, p)
-		}
+		s.logReceiver.OnSendQuery(addr, p)
 		return s.KrpcPacketEncoder.Write(p, addr)
 	})
 	return tx, err
@@ -234,9 +243,7 @@ func (s *RPC) Respond(addr *net.UDPAddr, txID string, r kmsg.Return) error {
 		"r":  r,
 		"ip": util.CompactPeer{IP: addr.IP.To4(), Port: addr.Port},
 	}
-	if s.OnSendResponse != nil {
-		s.OnSendResponse(addr, p)
-	}
+	s.logReceiver.OnSendResponse(addr, p)
 	return s.Write(p, addr)
 }
 
@@ -254,14 +261,14 @@ func (s *RPC) Error(addr *net.UDPAddr, txID string, e kmsg.Error) error {
 		"e":  e,
 		"ip": util.CompactPeer{IP: addr.IP.To4(), Port: addr.Port},
 	}
-	if s.OnSendResponse != nil {
-		s.OnSendResponse(addr, p)
-	}
+	s.logReceiver.OnSendResponse(addr, p)
 	return s.Write(p, addr)
 }
 
 // Close is TBD.
 func (s *RPC) Close() error {
+	// s.peerStatsLogger.Clear()
+	s.logReceiver.Clear()
 	s.tx.Stop()
 	return s.KrpcPacketEncoder.Close()
 }

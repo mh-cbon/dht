@@ -173,7 +173,7 @@ func main() {
 	// socket := socket.New(sockConfig)
 	socket := socket.NewConcurrent(qconcurreny, sockConfig.WithAddr(sListen))
 	if v {
-		socket.SetLog(logger.Std)
+		socket.AddLogger(logger.Text(log.Printf))
 	}
 	krpcSocket := rpc.New(socket, kconfig)
 

@@ -56,7 +56,7 @@ func TestPeerStats(t *testing.T) {
 			})
 		})
 		<-time.After(timeout * 2)
-		if bobRPC.isBadNode(ad) == false {
+		if bobRPC.IsBadNode(ad) == false {
 			t.Errorf("wanted bob to ban %q", ad.String())
 		}
 	})
@@ -77,7 +77,7 @@ func TestPeerStats(t *testing.T) {
 		alice.ReadOnly(true)
 		alice.Query(bob.Addr(), "ping", nil, func(res kmsg.Msg) {})
 		<-time.After(timeout * 2)
-		if bobRPC.isBadNode(alice.Addr()) == false {
+		if bobRPC.IsBadNode(alice.Addr()) == false {
 			t.Errorf("wanted bob to ban alice (%q)", alice.Addr().String())
 		}
 	})
@@ -95,13 +95,13 @@ func TestPeerStats(t *testing.T) {
 		alice.ReadOnly(true)
 		alice.Query(bob.Addr(), "ping", nil, func(res kmsg.Msg) {})
 		<-time.After(timeout * 2)
-		if bobRPC.isBadNode(alice.Addr()) == false {
+		if bobRPC.IsBadNode(alice.Addr()) == false {
 			t.Errorf("wanted bob to ban alice (%q)", alice.Addr().String())
 		}
 		alice.ReadOnly(false)
 		alice.Query(bob.Addr(), "ping", nil, func(res kmsg.Msg) {})
 		<-time.After(timeout * 2)
-		if bobRPC.isBadNode(alice.Addr()) {
+		if bobRPC.IsBadNode(alice.Addr()) {
 			t.Errorf("wanted bob to unban alice (%q)", alice.Addr().String())
 		}
 	})
@@ -124,7 +124,7 @@ func TestPeerStats(t *testing.T) {
 			})
 		})
 		<-time.After(timeout * 2)
-		if bobRPC.isBadNode(ad) == false {
+		if bobRPC.IsBadNode(ad) == false {
 			t.Errorf("wanted bob to record %q as bad node", ad.String())
 		}
 
@@ -139,7 +139,7 @@ func TestPeerStats(t *testing.T) {
 			})
 		})
 		<-time.After(timeout * 2)
-		if bobRPC.isBadNode(alice.Addr()) {
+		if bobRPC.IsBadNode(alice.Addr()) {
 			t.Errorf("wanted bob to unban alice (%q)", alice.Addr().String())
 		}
 	})

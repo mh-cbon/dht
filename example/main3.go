@@ -1,3 +1,4 @@
+// to test repetitive multiple lookup and multiple table release.
 package main
 
 import (
@@ -43,7 +44,7 @@ func main3() {
 
 	listen := func(d *dht.DHT) error {
 		if v {
-			d.SetLog(logger.Std)
+			d.AddLogger(logger.Text(log.Printf))
 		}
 		fmt.Println("Running bootstrap...")
 		err := d.BootstrapAuto(nil, bootstrap.Public)
@@ -91,7 +92,10 @@ func main3() {
 					for _, c := range closest {
 						fmt.Printf("%-24v %x %v\n", c.GetAddr(), c.GetID(), bucket.Distance(targetID, c.GetID()))
 					}
-					//todo: add support to be able to release a table.
+					if relErr := d.ReleaseLookupTable(todoTarget); relErr != nil {
+						retErr = relErr
+						return
+					}
 				}()
 				if retErr != nil {
 					return retErr

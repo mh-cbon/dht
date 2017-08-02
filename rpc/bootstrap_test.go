@@ -127,7 +127,7 @@ func TestBootstrap(t *testing.T) {
 		defer bob.Close()
 
 		rpc := New(bob, KRPCConfig{})
-		rpc.addBadNode(alice.Addr())
+		rpc.BanNode(alice.Addr())
 		_, err := rpc.Boostrap(nil, nil, []string{alice.Addr().String()})
 		wantErr(t, errors.New("The table is empty after bootstrap"), err)
 
