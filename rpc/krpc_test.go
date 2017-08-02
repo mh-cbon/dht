@@ -92,7 +92,7 @@ func TestKRPC(t *testing.T) {
 		_, err := bobRPC.Query(addr, "ping", nil, func(res kmsg.Msg) {
 			wantErr(t, fmt.Errorf("KRPC error 201: Query timeout"), res.E)
 			d := time.Now().Sub(now)
-			if d < 100*time.Millisecond || d > 110*time.Millisecond {
+			if d < 100*time.Millisecond || d > 120*time.Millisecond {
 				t.Errorf("the timeout duration is incorrect, wanted 100<%v<110", d)
 			}
 		})

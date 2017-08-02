@@ -18,7 +18,7 @@ func TestCLimit(t *testing.T) {
 		var cnt int32
 		concurrency := 5
 		concurrencyMax := 14
-		concurrencyMin := 4
+		concurrencyMin := 2
 
 		alice := New(NewConfig("127.0.0.1:9540"))
 		go alice.MustListen(func(msg kmsg.Msg, from *net.UDPAddr) error {
