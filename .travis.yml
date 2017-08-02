@@ -1,0 +1,27 @@
+language: go
+
+branches:
+  only:
+    - master
+
+matrix:
+  include:
+    - go: 1.6.3
+    - go: 1.7.5
+    - go: 1.8
+    - go: 1.9
+
+cache:
+  directories:
+    - $GOPATH/src
+    - $GOPATH/pkg
+
+install:
+- go get -u -v $(go list -f '{{join .Imports "\n"}}{{"\n"}}{{join .TestImports "\n"}}' ./... | sort | uniq | grep -v golang-samples)
+
+script:
+- go test -v bucket/*go
+- go test -v dht/*go
+- go test -v kmsg/*go
+- go test -v rpc/*go
+- go test -v socket/*go
