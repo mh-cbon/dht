@@ -77,7 +77,6 @@ func New(s SocketRPCer, c KRPCConfig) *KRPC {
 	if !s.GetPeersStats().OnPeerTimeout("dht.rpc", ret.RmNodeFromLookupTables) {
 		panic("nop not good, fix that")
 	}
-	// ret.OnTimeout(nil) // force create a callback to cleanup lookup tables. //todo: re visit this.
 	return ret
 }
 
@@ -101,18 +100,6 @@ func (k *KRPC) RmNodeFromLookupTables(remote *net.UDPAddr, queriedQ string, quer
 	k.lookupTableForPeers.RemoveNode(remote)
 	k.lookupTableForStores.RemoveNode(remote)
 }
-
-// OnTimeout registers a callback called when a node timeout.
-// func (k *KRPC) OnTimeout(t Timeout) *KRPC { //todo: check.
-// 	k.onNodeTimeout = func(q string, a map[string]interface{}, node *net.UDPAddr, err kmsg.Error) {
-// 		k.lookupTableForPeers.RemoveNode(node)
-// 		k.lookupTableForStores.RemoveNode(node)
-// 		if t != nil {
-// 			t(q, a, node, err)
-// 		}
-// 	}
-// 	return k
-// }
 
 // Close the socket.
 func (k *KRPC) Close() error {

@@ -10,14 +10,12 @@ import (
 //Node is a contact on the network.
 type Node struct {
 	bucket.ContactIdentifier
-	// lastPing time.Time //todo: use a stat store.
 }
 
 //NewNode creates a new contact.
 func NewNode(id [20]byte, addr *net.UDPAddr) Node {
 	return Node{
 		ContactIdentifier: bucket.NewContact(string(id[:]), *addr),
-		// lastPing: time.Now(),
 	}
 }
 

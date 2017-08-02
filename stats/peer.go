@@ -69,7 +69,7 @@ func (p *Peer) IsTimeout() bool {
 func (p *Peer) IsActive(d time.Duration) bool {
 	for _, a := range p.activity {
 		if a.Is("q", "r") && a.IsActive(d) {
-			return true //todo: check the change.
+			return true
 		}
 	}
 	return false

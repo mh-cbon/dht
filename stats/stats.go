@@ -7,6 +7,7 @@ import (
 	"github.com/mh-cbon/dht/kmsg"
 )
 
+// PeerTimeout is the callback signature when a nodes enters timeout.
 type PeerTimeout func(remote *net.UDPAddr, queriedQ string, queriedA map[string]interface{}, response kmsg.Msg)
 
 // NewPeersLogger with default options (maxActivityLength:10, activeDuration:30s)

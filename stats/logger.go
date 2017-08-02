@@ -50,6 +50,9 @@ func (s *Peers) OnTxNotFound(remote *net.UDPAddr, q kmsg.Msg) {
 		x.OnTxNotFound(remote, q)
 		x.Cap(s.maxActivityLength)
 	}
+	// todo: add support for detection of too slow nodes,
+	// provides a new value optimal timeout duration,
+	// use that new value to apply adaptative timeout per remote.
 }
 
 // OnPeerTimeout calls f when a peer goes to timeout.
