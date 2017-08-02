@@ -5,7 +5,7 @@ LicenseColor: yellow
 ---
 # {{.Name}}
 
-{{template "badge/travis" .}} {{template "badge/appveyor" .}} {{template "badge/goreport" .}} {{template "badge/godoc" .}} {{template "license/shields" .}}
+{{template "badge/travis" .}} {{template "badge/goreport" .}} {{template "badge/godoc" .}} {{template "license/shields" .}}
 
 {{pkgdoc}}
 
