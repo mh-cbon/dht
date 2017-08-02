@@ -17,7 +17,7 @@ func TestCLimit(t *testing.T) {
 		var tcnt int32
 		var cnt int32
 		concurrency := 5
-		concurrencyMax := 12
+		concurrencyMax := 14
 		concurrencyMin := 4
 
 		alice := New(NewConfig("127.0.0.1:9540"))

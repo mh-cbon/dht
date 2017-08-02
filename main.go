@@ -1,3 +1,4 @@
+// Package dht is a kademlia implementation of a Distributed Hash Table.
 package main
 
 import (
