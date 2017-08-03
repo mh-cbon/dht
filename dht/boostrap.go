@@ -16,9 +16,9 @@ func (d *DHT) Bootstrap(id []byte, publicIP *util.CompactPeer, addrs []string) (
 }
 
 // BootstrapAuto handles bep42 bootstrap process.
-func (d *DHT) BootstrapAuto(publicIP *util.CompactPeer, addrs []string) error {
+func (d *DHT) BootstrapAuto(publicIP *util.CompactPeer, addrs []string) (*util.CompactPeer, error) {
 	hostname, _ := os.Hostname()
-	localAddr := d.rpc.Addr()
+	localAddr := d.rpc.GetAddr()
 	for {
 		var ip *net.IP
 		if publicIP != nil {
@@ -28,10 +28,13 @@ func (d *DHT) BootstrapAuto(publicIP *util.CompactPeer, addrs []string) error {
 		recommandedIP, err := d.rpc.Boostrap(id, publicIP, addrs)
 		if err == nil && recommandedIP != nil {
 			publicIP = recommandedIP
-		} else {
-			return err
+		} else if err != nil {
+			return nil, err
+		} else if publicIP != nil {
+			break
 		}
 	}
+	return publicIP, nil
 }
 
 // BootstrapExport the nodes in the bootstrap table.

@@ -12,19 +12,22 @@ import (
 	"github.com/mh-cbon/dht/logger"
 )
 
-func main() {
+func main2() {
 	var v bool
 	flag.BoolVar(&v, "vv", false, "verbose mode")
 	flag.Parse()
 
-	listen := func(d *dht.DHT) error {
+	ready := func(d *dht.DHT) error {
 		if v {
 			d.AddLogger(logger.Text(log.Printf))
 		}
 		fmt.Println("Running bootstrap...")
-		err := d.BootstrapAuto(nil, bootstrap.Public)
+		publicIP, err := d.BootstrapAuto(nil, bootstrap.Public)
 		if err != nil {
 			return err
+		}
+		if publicIP != nil {
+			log.Printf("public IP bootstrap %v:%v\n", publicIP.IP, publicIP.Port)
 		}
 
 		selfID := []byte(d.ID())
@@ -57,7 +60,7 @@ func main() {
 		}
 		return nil
 	}
-	if err := dht.New(nil, nil).Listen(listen); err != nil {
+	if err := dht.New(dht.DefaultOps()).Serve(ready); err != nil {
 		if err != nil {
 			log.Fatal(err)
 		}

@@ -1,16 +1,83 @@
 package dht
 
 import (
-	"crypto/rand"
 	"net"
 	"time"
 
+	"github.com/anacrolix/torrent/iplist"
 	"github.com/mh-cbon/dht/kmsg"
 	"github.com/mh-cbon/dht/logger"
 	"github.com/mh-cbon/dht/rpc"
 	"github.com/mh-cbon/dht/socket"
 	"github.com/mh-cbon/dht/token"
 )
+
+//Opt is a option setter
+type Opt func(*DHT)
+
+//ToKRPC ...
+func ToKRPC(in rpc.KRPCOpt) Opt {
+	return func(d *DHT) {
+		in(d.rpc)
+	}
+}
+
+// Opts are dht server options.
+var Opts = struct {
+	WithRPCSocket   func(r rpc.SocketRPCer) Opt
+	WithSocket      func(socket net.PacketConn) Opt
+	WithAddr        func(addr string) Opt
+	WithTimeout     func(duraton time.Duration) Opt
+	ReadOnly        func(ro bool) Opt
+	ID              func(id string) Opt
+	BlockIPs        func(ips iplist.Ranger) Opt
+	WithK           func(k int) Opt
+	WithConcurrency func(concurrency int) Opt
+	WithTokenSecret func(secret []byte) Opt
+}{
+	WithRPCSocket: func(r rpc.SocketRPCer) Opt {
+		return ToKRPC(rpc.KRPCOpts.WithRPCSocket(r))
+	},
+	WithSocket: func(socket net.PacketConn) Opt {
+		return ToKRPC(rpc.KRPCOpts.WithSocket(socket))
+	},
+	WithAddr: func(addr string) Opt {
+		return ToKRPC(rpc.KRPCOpts.WithAddr(addr))
+	},
+	WithTimeout: func(duration time.Duration) Opt {
+		return ToKRPC(rpc.KRPCOpts.WithTimeout(duration))
+	},
+	ReadOnly: func(ro bool) Opt {
+		return ToKRPC(rpc.KRPCOpts.ReadOnly(ro))
+	},
+	ID: func(id string) Opt {
+		return ToKRPC(rpc.KRPCOpts.ID(id))
+	},
+	BlockIPs: func(ips iplist.Ranger) Opt {
+		return ToKRPC(rpc.KRPCOpts.BlockIPs(ips))
+	},
+	WithK: func(k int) Opt {
+		return ToKRPC(rpc.KRPCOpts.WithK(k))
+	},
+	WithConcurrency: func(concurrency int) Opt {
+		return ToKRPC(rpc.KRPCOpts.WithConcurrency(concurrency))
+	},
+	WithTokenSecret: func(secret []byte) Opt {
+		return func(d *DHT) {
+			d.tokenServer.SetSecret(secret)
+		}
+	},
+}
+
+// DefaultOps for a dht node
+var DefaultOps = func() Opt {
+	return func(d *DHT) {
+		Opts.WithRPCSocket(socket.NewConcurrent(24))(d)
+		Opts.WithTimeout(time.Second)(d)
+		Opts.WithK(20)(d)
+		Opts.WithConcurrency(8)(d)
+	}
+}
 
 // DHT implements the bep
 type DHT struct {
@@ -28,35 +95,20 @@ type DHT struct {
 	bep44TokenStore *token.TSStore // bep44
 	// stores put request
 	bep44ValueStore *TSValueStore // bep44
-
 }
 
 // New initiliazes a new DHT.
-// secret is the token server secret.
-// r is a kademlia/dht api to interact with the network.
-func New(secret []byte, r *rpc.KRPC) *DHT {
-	if secret == nil {
-		secret = make([]byte, 20)
-		rand.Read(secret)
-	}
-	if len(secret) > 20 {
-		secret = secret[:20]
-	}
-	if r == nil {
-		sockConfig := socket.RPCConfig{}.WithTimeout(time.Second)
-		// socket := socket.New(sockConfig)
-		socket := socket.NewConcurrent(24, sockConfig)
-
-		kconfig := rpc.KRPCConfig{}.WithConcurrency(8).WithK(20)
-		r = rpc.New(socket, kconfig)
-	}
+func New(opts ...Opt) *DHT {
 	ret := &DHT{
-		rpc:             r,
-		tokenServer:     token.NewDefault(secret),
+		rpc:             rpc.New(),
+		tokenServer:     token.NewDefault(nil),
 		peerStore:       NewTSPeerStore(),
 		bep05TokenStore: token.NewTSStore(),
 		bep44TokenStore: token.NewTSStore(),
 		bep44ValueStore: NewTSValueStore(),
+	}
+	for _, opt := range opts {
+		opt(ret)
 	}
 	ret.rpc.GetPeersStats().OnPeerTimeout("dht.dht", ret.RmNodeFromStores)
 	return ret
@@ -69,11 +121,11 @@ func (d *DHT) RmNodeFromStores(remote *net.UDPAddr, queriedQ string, queriedA ma
 	d.bep44TokenStore.RmByAddr(remote)
 }
 
-// Listen to the socket and execute given func if the listen operation succeeded.
-func (d *DHT) Listen(ready func(*DHT) error) error {
+// ListenAndServe the socket, handle aueries with given handler, calls for ready if listen is ok.
+func (d *DHT) ListenAndServe(h socket.QueryHandler, ready func(*DHT) error) error {
 	e := make(chan error)
 	go func() {
-		e <- d.rpc.Listen(d.handleIncomingQuery)
+		e <- d.Listen(h)
 	}()
 	select {
 	case err := <-e:
@@ -83,14 +135,29 @@ func (d *DHT) Listen(ready func(*DHT) error) error {
 	return ready(d)
 }
 
-// Addr returns the local address.
-func (d *DHT) Addr() *net.UDPAddr {
-	return d.rpc.Addr()
+// Listen the socket, handle aueries with given handler.
+func (d *DHT) Listen(h socket.QueryHandler) error {
+	return d.rpc.Listen(h)
 }
 
-// ID  returns your node id.
+// Serve the socket and execute ready func if the listen operation succeeded.
+func (d *DHT) Serve(ready func(*DHT) error) error {
+	return d.ListenAndServe(StdQueryHandler(d), ready)
+}
+
+// GetAddr returns the local address.
+func (d *DHT) GetAddr() *net.UDPAddr {
+	return d.rpc.GetAddr()
+}
+
+// ID  returns your node id (raw string).
 func (d *DHT) ID() string {
 	return d.rpc.ID()
+}
+
+// GetID  returns your node id (raw byte string).
+func (d *DHT) GetID() []byte {
+	return d.rpc.GetID()
 }
 
 // AddLogger of this rpc.
@@ -105,7 +172,6 @@ func (d *DHT) RmLogger(l logger.LogReceiver) bool {
 
 // Close the dht and its socket.
 func (d *DHT) Close() error {
-	// d.tokenServer.Clear()
 	d.rpc.GetPeersStats().OffPeerTimeout("dht.dht")
 	d.peerStore.Clear()
 	d.bep05TokenStore.Clear()
@@ -127,32 +193,6 @@ func (d *DHT) TokenGetPeers(remote net.UDPAddr) string {
 // TokenGet returns a token saved after sending get queries.
 func (d *DHT) TokenGet(remote net.UDPAddr) string {
 	return d.bep44TokenStore.GetToken(remote)
-}
-
-// handleQuery from the network.
-func (d *DHT) handleIncomingQuery(msg kmsg.Msg, remote *net.UDPAddr) error {
-	q := msg.Q
-
-	if q == kmsg.QFindNode {
-		return d.OnFindNode(msg, remote)
-
-	} else if q == kmsg.QPing {
-		return d.OnPing(msg, remote)
-
-	} else if q == kmsg.QAnnouncePeer {
-		return d.OnAnnouncePeer(msg, remote)
-
-	} else if q == kmsg.QGetPeers {
-		return d.OnGetPeers(msg, remote)
-
-	} else if q == kmsg.QGet {
-		return d.OnGet(msg, remote)
-
-	} else if q == kmsg.QPut {
-		return d.OnPut(msg, remote)
-
-	}
-	return d.rpc.Error(remote, msg.T, kmsg.ErrorMethodUnknown)
 }
 
 // Query an addr.

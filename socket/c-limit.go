@@ -1,6 +1,7 @@
 package socket
 
 import (
+	"io"
 	"net"
 
 	"github.com/mh-cbon/dht/kmsg"
@@ -15,19 +16,37 @@ type Concurrent struct {
 }
 
 // NewConcurrent prepares a new socket with concurrency limit.
-func NewConcurrent(limit int, c RPCConfig) *Concurrent {
+func NewConcurrent(limit int, opts ...RPCOpt) *Concurrent {
 	ret := &Concurrent{
-		RPC:    New(c),
+		RPC:    New(opts...),
 		stop:   make(chan struct{}),
 		qStart: make(chan func(chan struct{}), limit),
 		qDone:  make(chan struct{}, limit),
 	}
-	go ret.Loop()
 	return ret
 }
 
-// Loop concurrently runs c simultaneous queries.
-func (k *Concurrent) Loop() {
+// Listen reads kmsg.Msg
+func (k *Concurrent) Listen(h QueryHandler) error {
+	go k.Start()
+	return k.RPC.Listen(h)
+}
+
+// MustListen reads kmsg.Msg
+func (k *Concurrent) MustListen(h QueryHandler) {
+	if err := k.Listen(h); err != nil && err != io.EOF {
+		panic(err)
+	}
+}
+
+// Close the socket.
+func (k *Concurrent) Close() error {
+	k.stop <- struct{}{}
+	return k.RPC.Close()
+}
+
+// Start concurrently runs c simultaneous queries.
+func (k *Concurrent) Start() {
 	for {
 		select {
 		case f := <-k.qStart:

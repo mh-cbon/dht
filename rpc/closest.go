@@ -9,7 +9,7 @@ import (
 //MakeTable is an helper to create a configured table.
 func (k *KRPC) MakeTable(target []byte) *bucket.TSBucket {
 	bucketTable := bucket.NewTS(target)
-	bucketTable.Configure(k.config.k, k.config.concurrency)
+	bucketTable.Configure(k.k, k.concurrency)
 	bucketTable.OnPing(k.handleTablePing(bucketTable))
 	return bucketTable
 }

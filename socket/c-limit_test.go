@@ -1,6 +1,7 @@
 package socket
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"sync/atomic"
@@ -12,6 +13,13 @@ import (
 
 func TestCLimit(t *testing.T) {
 
+	port := 9666
+	newAddr := func() string {
+		ip := "127.0.0.1"
+		addr := fmt.Sprintf("%v:%v", ip, port)
+		port++
+		return addr
+	}
 	t.Run("should not exceed query limit", func(t *testing.T) {
 
 		var tcnt int32
@@ -20,13 +28,13 @@ func TestCLimit(t *testing.T) {
 		concurrencyMax := 14
 		concurrencyMin := 2
 
-		alice := New(NewConfig("127.0.0.1:9540"))
+		alice := New(RPCOpts.WithAddr(newAddr()))
 		go alice.MustListen(func(msg kmsg.Msg, from *net.UDPAddr) error {
 			<-time.After(time.Millisecond * 10)
 			return alice.Respond(from, msg.T, kmsg.Return{V: "hi!"})
 		})
 
-		bob := NewConcurrent(concurrency, NewConfig("127.0.0.1:9541"))
+		bob := NewConcurrent(concurrency, RPCOpts.WithAddr(newAddr()))
 		go bob.MustListen(nil)
 
 		<-time.After(time.Millisecond)
@@ -36,7 +44,7 @@ func TestCLimit(t *testing.T) {
 			for {
 				go atomic.AddInt32(&tcnt, 1)
 				atomic.AddInt32(&cnt, 1)
-				bob.Query(makeAddr("127.0.0.1:9540"), "meet", nil, func(kmsg.Msg) {
+				bob.Query(alice.GetAddr(), "meet", nil, func(kmsg.Msg) {
 					atomic.AddInt32(&cnt, -1)
 				})
 				select {
@@ -76,7 +84,7 @@ func TestCLimit(t *testing.T) {
 		<-time.After(time.Millisecond)
 	})
 	t.Run("should not exceed query limit2", func(t *testing.T) {
-		alice := New(NewConfig("127.0.0.1:9540"))
+		alice := New(RPCOpts.WithAddr(newAddr()))
 		i := 10
 		go alice.MustListen(func(msg kmsg.Msg, from *net.UDPAddr) error {
 			i--
@@ -84,18 +92,18 @@ func TestCLimit(t *testing.T) {
 			return alice.Respond(from, msg.T, kmsg.Return{V: "hi!"})
 		})
 
-		bob := NewConcurrent(5, NewConfig("127.0.0.1:9541"))
+		bob := NewConcurrent(5, RPCOpts.WithAddr(newAddr()))
 		go bob.MustListen(nil)
 
 		<-time.After(time.Millisecond)
 
-		go bob.Query(makeAddr("127.0.0.1:9540"), "meet", nil, func(kmsg.Msg) {
+		go bob.Query(alice.GetAddr(), "meet", nil, func(kmsg.Msg) {
 			log.Println("timeout 1")
 		})
-		go bob.Query(makeAddr("127.0.0.1:9540"), "meet", nil, func(kmsg.Msg) {
+		go bob.Query(alice.GetAddr(), "meet", nil, func(kmsg.Msg) {
 			log.Println("timeout 2")
 		})
-		go bob.Query(makeAddr("127.0.0.1:9540"), "meet", nil, func(kmsg.Msg) {
+		go bob.Query(alice.GetAddr(), "meet", nil, func(kmsg.Msg) {
 			log.Println("timeout 3")
 		})
 

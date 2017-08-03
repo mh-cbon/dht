@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/mh-cbon/dht/kmsg"
-	"github.com/mh-cbon/dht/socket"
 )
 
 func TestBep42(t *testing.T) {
@@ -32,10 +31,18 @@ func TestBep42(t *testing.T) {
 	// 		return
 	// 	}
 	// }
-	makeSocket := func(name string, ip string, timeout time.Duration) *socket.RPC {
+	newAddr := func() string {
+		ip := "127.0.0.1"
 		addr := fmt.Sprintf("%v:%v", ip, port)
 		port++
-		return socket.New(socket.RPCConfig{}.WithID(makID(name)).WithTimeout(timeout).WithAddr(addr))
+		return addr
+	}
+	makeRPC := func(name string, timeout time.Duration) *KRPC {
+		return New(
+			KRPCOpts.ID(string(makID(name))),
+			KRPCOpts.WithTimeout(timeout),
+			KRPCOpts.WithAddr(newAddr()),
+		)
 	}
 	t.Run("should blank a response get token when the node id is insecure", func(t *testing.T) {
 		remote := &net.UDPAddr{
@@ -50,12 +57,11 @@ func TestBep42(t *testing.T) {
 	})
 	t.Run("should block insecure queries", func(t *testing.T) {
 
-		bob := makeSocket("bob", "127.0.0.1", timeout)
+		bob := makeRPC("bob", timeout)
 		go bob.Listen(nil)
 		defer bob.Close()
-		bobRPC := New(bob, KRPCConfig{})
 
-		err := SecuredQueryOnly(bobRPC, func(msg kmsg.Msg, remote *net.UDPAddr) error {
+		err := SecuredQueryOnly(bob, func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			return nil
 		})(
 			kmsg.Msg{Q: kmsg.QGetPeers},
@@ -63,10 +69,10 @@ func TestBep42(t *testing.T) {
 		)
 		wantErr(t, fmt.Errorf("Invalid get_peers packet: mising Arguments"), err)
 
-		err2 := SecuredQueryOnly(bobRPC, func(msg kmsg.Msg, remote *net.UDPAddr) error {
+		err2 := SecuredQueryOnly(bob, func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			return nil
 		})(
-			kmsg.Msg{Q: kmsg.QGetPeers, A: &kmsg.MsgArgs{ID: string(bob.GetID())}},
+			kmsg.Msg{Q: kmsg.QGetPeers, A: &kmsg.MsgArgs{ID: bob.ID()}},
 			&net.UDPAddr{IP: net.ParseIP("95.12.45.2"), Port: 8888},
 		)
 		if err2 == nil {

@@ -120,33 +120,11 @@ func main() {
 		return
 	}
 
-	var secret []byte
-	if tokenSecret != "" {
-		secret = []byte(tokenSecret)
-	}
+	var publicIP *util.CompactPeer
+	var bNodes []string
 
 	hostname, _ := os.Hostname()
 
-	sockConfig := socket.RPCConfig{}
-	if qtimeout != "" {
-		d, err := time.ParseDuration(qtimeout)
-		if err != nil {
-			panic(err)
-		}
-		sockConfig = sockConfig.WithTimeout(d)
-	}
-	if dID != "" {
-		if len(dID) < 20 {
-			dID += strings.Repeat("0", 20-len(dID))
-		}
-		t, e := hex.DecodeString(dID)
-		if e != nil {
-			panic(e)
-		}
-		sockConfig = sockConfig.WithID(t)
-	}
-
-	var publicIP *util.CompactPeer
 	if sPublicIP != "" {
 		host, sport, err := net.SplitHostPort(sPublicIP)
 		if err != nil {
@@ -159,43 +137,10 @@ func main() {
 		publicIP = &util.CompactPeer{IP: net.ParseIP(host), Port: port}
 	}
 
-	var ipBlocked *iplist.IPList
-	if blocklist != "" {
-		i, err := iplist.NewFromReader(strings.NewReader(blocklist))
-		if err != nil {
-			panic(err)
-		}
-		ipBlocked = i
-		sockConfig.WithIPBlockList(ipBlocked)
-	}
+	ready := func(public *dht.DHT) error {
 
-	kconfig := rpc.KRPCConfig{}.WithConcurrency(kconcurrency).WithK(ksize)
-
-	// socket := socket.New(sockConfig)
-	socket := socket.NewConcurrent(qconcurreny, sockConfig.WithAddr(sListen))
-	if v {
-		socket.AddLogger(logger.Text(log.Printf))
-	}
-	krpcSocket := rpc.New(socket, kconfig)
-
-	var bNodes []string
-	if bnodesList != "no" {
-		publicIP, bNodes = loadBNodes(bnodesList)
-	}
-
-	var selfID []byte
-	{
-		localAddr := socket.Addr()
-
-		var pip *net.IP
-		if publicIP != nil {
-			pip = &publicIP.IP
-		}
-		selfID = security.GenerateSecureNodeID(hostname, localAddr, pip)
-	}
-	log.Printf("self id %x\n", string(selfID))
-
-	listening := func(public *dht.DHT) error {
+		selfID := public.GetID()
+		log.Printf("self id %x\n", public.ID())
 
 		log.Println("dht bootstrap...")
 		log.Println("bootstrap nodes count:", len(bNodes))
@@ -205,7 +150,7 @@ func main() {
 			return bootErr
 		} else if rIP != nil {
 			recommendedIP = rIP
-			selfID = security.GenerateSecureNodeID(hostname, socket.Addr(), &rIP.IP)
+			selfID = security.GenerateSecureNodeID(hostname, public.GetAddr(), &rIP.IP)
 			log.Printf("After bootstrap a new recommended ip was provided %v\n", rIP)
 			if rIP2, bootErr2 := public.Bootstrap(selfID, rIP, bNodes); bootErr != nil {
 				return bootErr2
@@ -218,7 +163,10 @@ func main() {
 			bNodes = saveBNodes(recommendedIP, public)
 			log.Println("bootstrap length:", len(bNodes))
 		}
-		log.Printf("self id after bootstrap %x\n", socket.ID())
+		log.Printf("self id after bootstrap %x\n", public.ID())
+		if recommendedIP != nil {
+			log.Printf("public IP bootstrap %v:%v\n", recommendedIP.IP, recommendedIP.Port)
+		}
 
 		if do == "boostrap" {
 			return nil
@@ -301,24 +249,20 @@ func main() {
 			}
 		}
 
+		onResponse := func(remote *net.UDPAddr, res kmsg.Msg) {
+			log.Println(remote, res.R, res.E)
+		}
 		if do == "ping" {
-			public.PingAll(targetAddr, func(remote *net.UDPAddr, res kmsg.Msg) {
-				log.Println(remote, res)
-			})
+			public.PingAll(targetAddr, onResponse)
+
 		} else if do == "announce_peer" {
-			public.AnnouncePeerAll(targetAddr, targetHash, uint(announcePort), announceImpliedPort, func(remote *net.UDPAddr, res kmsg.Msg) {
-				log.Println(remote, res)
-			})
+			public.AnnouncePeerAll(targetAddr, targetHash, uint(announcePort), announceImpliedPort, onResponse)
 
 		} else if do == "get_peers" {
-			public.GetPeersAll(targetAddr, targetHash, func(remote *net.UDPAddr, res kmsg.Msg) {
-				log.Println(remote, res)
-			})
+			public.GetPeersAll(targetAddr, targetHash, onResponse)
 
 		} else if do == "find_node" {
-			public.FindNodeAll(targetAddr, targetHash, func(remote *net.UDPAddr, res kmsg.Msg) {
-				log.Println(remote, res)
-			})
+			public.FindNodeAll(targetAddr, targetHash, onResponse)
 
 		} else if do == "get" {
 
@@ -328,8 +272,15 @@ func main() {
 					return err
 				}
 				log.Printf("pbk %x\n", pbk)
+				err = public.LookupStores(targetHash, nil)
+				if err != nil {
+					return err
+				}
 				val, err := public.MGetAll(targetHash, pbk, seq, putSalt, targetAddr...)
 				log.Println("value", val)
+				return err
+			}
+			if err := public.LookupStores(targetHash, nil); err != nil {
 				return err
 			}
 			val, err := public.GetAll(targetHash, targetAddr...)
@@ -350,16 +301,81 @@ func main() {
 				log.Printf("target %v\n", m.Target)
 				log.Printf("sign %x\n", m.Sign)
 				log.Printf("pbk %x\n", m.Pbk)
+				err = public.LookupStores(m.Target, nil)
+				if err != nil {
+					return err
+				}
 				return public.MPutAll(m, targetAddr...)
 			}
-			target, err := public.PutAll(putVal, targetAddr...)
-			log.Println("target", target)
+			hexTarget := dht.ValueToHex(putVal)
+			log.Println("target", hexTarget)
+			err := public.LookupStores(hexTarget, nil)
+			if err != nil {
+				return err
+			}
+			_, err = public.PutAll(putVal, targetAddr...)
 			return err
 		}
 		return nil
 	}
 
-	if err := dht.New(secret, krpcSocket).Listen(listening); err != nil {
+	opts := []dht.Opt{}
+
+	socket := socket.NewConcurrent(qconcurreny)
+	if v {
+		socket.AddLogger(logger.Text(log.Printf))
+	}
+	opts = append(opts, dht.Opts.WithRPCSocket(socket))
+	opts = append(opts, dht.Opts.WithAddr(sListen))
+
+	if tokenSecret != "" {
+		opts = append(opts, dht.Opts.WithTokenSecret([]byte(tokenSecret)))
+	}
+
+	if qtimeout != "" {
+		d, err := time.ParseDuration(qtimeout)
+		if err != nil {
+			panic(err)
+		}
+		opts = append(opts, dht.Opts.WithTimeout(d))
+	}
+	if dID != "" {
+		if len(dID) < 20 {
+			dID += strings.Repeat("0", 20-len(dID))
+		}
+		t, e := hex.DecodeString(dID)
+		if e != nil {
+			panic(e)
+		}
+		opts = append(opts, dht.Opts.ID(string(t)))
+	} else {
+		var pip *net.IP
+		if publicIP != nil {
+			pip = &publicIP.IP
+		}
+		i := security.GenerateSecureNodeID(hostname, nil, pip)
+		opts = append(opts, dht.Opts.ID(string(i)))
+	}
+
+	// var ipBlocked *iplist.IPList
+	if blocklist != "" {
+		i, err := iplist.NewFromReader(strings.NewReader(blocklist))
+		if err != nil {
+			panic(err)
+		}
+		// ipBlocked = i
+		opts = append(opts, dht.Opts.BlockIPs(i))
+	}
+
+	opts = append(opts, dht.Opts.WithConcurrency(kconcurrency))
+	opts = append(opts, dht.Opts.WithK(ksize))
+
+	if bnodesList != "no" {
+		publicIP, bNodes = loadBNodes(bnodesList)
+	}
+
+	node := dht.New(opts...)
+	if err := node.ListenAndServe(dht.StdQueryHandler(node), ready); err != nil {
 		if bnodesList == "no" {
 			if _, ok := err.(emptyBootstrap); ok {
 				err = nil

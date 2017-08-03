@@ -33,13 +33,28 @@ func TestBep44(t *testing.T) {
 	// 		return
 	// 	}
 	// }
-	makeSocket := func(name string, ip string, timeout time.Duration) *socket.RPC {
+	newAddr := func() string {
+		ip := "127.0.0.1"
 		addr := fmt.Sprintf("%v:%v", ip, port)
 		port++
-		return socket.New(socket.RPCConfig{}.WithID(makID(name)).WithTimeout(timeout).WithAddr(addr))
+		return addr
+	}
+	makeSocket := func(name string, timeout time.Duration) *socket.RPC {
+		return socket.New(
+			socket.RPCOpts.ID(string(makID(name))),
+			socket.RPCOpts.WithTimeout(timeout),
+			socket.RPCOpts.WithAddr(newAddr()),
+		)
+	}
+	makeRPC := func(name string, timeout time.Duration) *KRPC {
+		return New(
+			KRPCOpts.ID(string(makID(name))),
+			KRPCOpts.WithTimeout(timeout),
+			KRPCOpts.WithAddr(newAddr()),
+		)
 	}
 	t.Run("should make proper immutable get request", func(t *testing.T) {
-		alice := makeSocket("alice", "127.0.0.1", timeout)
+		alice := makeSocket("alice", timeout)
 		go alice.MustListen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			if msg.A == nil {
 				t.Errorf("wanted msg.A!=nil, got=%v", nil)
@@ -64,23 +79,22 @@ func TestBep44(t *testing.T) {
 		})
 		defer alice.Close()
 
-		bob := makeSocket("bob", "127.0.0.1", timeout)
+		bob := makeRPC("bob", timeout)
 		go bob.Listen(nil)
 		defer bob.Close()
-		bobRPC := New(bob, KRPCConfig{})
 
 		addrs := []*net.UDPAddr{
-			alice.Addr(),
+			alice.GetAddr(),
 		}
 		id := []byte("abcd")
-		bobRPC.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
-			return bobRPC.Get(remote, id[:], func(res kmsg.Msg) {
+		bob.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
+			return bob.Get(remote, id[:], func(res kmsg.Msg) {
 				done <- res.E
 			})
 		})
 	})
 	t.Run("should make proper immutable put request", func(t *testing.T) {
-		alice := makeSocket("alice", "127.0.0.1", timeout)
+		alice := makeSocket("alice", timeout)
 		go alice.MustListen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			if msg.A == nil {
 				t.Errorf("wanted msg.A!=nil, got=%v", nil)
@@ -107,22 +121,21 @@ func TestBep44(t *testing.T) {
 		})
 		defer alice.Close()
 
-		bob := makeSocket("bob", "127.0.0.1", timeout)
+		bob := makeRPC("bob", timeout)
 		go bob.Listen(nil)
 		defer bob.Close()
-		bobRPC := New(bob, KRPCConfig{})
 
 		addrs := []*net.UDPAddr{
-			alice.Addr(),
+			alice.GetAddr(),
 		}
-		bobRPC.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
-			return bobRPC.Put(remote, "hello", "writeToken", func(res kmsg.Msg) {
+		bob.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
+			return bob.Put(remote, "hello", "writeToken", func(res kmsg.Msg) {
 				done <- res.E
 			})
 		})
 	})
 	t.Run("should make proper mutable get request", func(t *testing.T) {
-		alice := makeSocket("alice", "127.0.0.1", timeout)
+		alice := makeSocket("alice", timeout)
 		go alice.MustListen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			if msg.A == nil {
 				t.Errorf("wanted msg.A!=nil, got=%v", nil)
@@ -147,23 +160,22 @@ func TestBep44(t *testing.T) {
 		})
 		defer alice.Close()
 
-		bob := makeSocket("bob", "127.0.0.1", timeout)
+		bob := makeRPC("bob", timeout)
 		go bob.Listen(nil)
 		defer bob.Close()
-		bobRPC := New(bob, KRPCConfig{})
 
 		addrs := []*net.UDPAddr{
-			alice.Addr(),
+			alice.GetAddr(),
 		}
 		id := []byte("abcd")
-		bobRPC.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
-			return bobRPC.MGet(remote, id[:], 2, func(res kmsg.Msg) {
+		bob.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
+			return bob.MGet(remote, id[:], 2, func(res kmsg.Msg) {
 				done <- res.E
 			})
 		})
 	})
 	t.Run("should make proper mutable put request", func(t *testing.T) {
-		alice := makeSocket("alice", "127.0.0.1", timeout)
+		alice := makeSocket("alice", timeout)
 		go alice.MustListen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			if msg.A == nil {
 				t.Errorf("wanted msg.A!=nil, got=%v", nil)
@@ -190,16 +202,15 @@ func TestBep44(t *testing.T) {
 		})
 		defer alice.Close()
 
-		bob := makeSocket("bob", "127.0.0.1", timeout)
+		bob := makeRPC("bob", timeout)
 		go bob.Listen(nil)
 		defer bob.Close()
-		bobRPC := New(bob, KRPCConfig{})
 
 		addrs := []*net.UDPAddr{
-			alice.Addr(),
+			alice.GetAddr(),
 		}
-		bobRPC.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
-			return bobRPC.MPut(remote, "value", []byte("pbk"), []byte("sign"), 2, 3, "salt", "writeToken", func(res kmsg.Msg) {
+		bob.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
+			return bob.MPut(remote, "value", []byte("pbk"), []byte("sign"), 2, 3, "salt", "writeToken", func(res kmsg.Msg) {
 				done <- res.E
 			})
 		})

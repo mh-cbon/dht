@@ -14,7 +14,7 @@ type Bencoded struct {
 }
 
 // Listen reads bencoded packets
-func (s *Bencoded) Listen(read func(kmsg.Msg, *net.UDPAddr) error) error {
+func (s Bencoded) Listen(read func(kmsg.Msg, *net.UDPAddr) error) error {
 	return s.Server.Listen(func(b []byte, addr *net.UDPAddr) error {
 		if len(b) < 2 || b[0] != 'd' || b[len(b)-1] != 'e' {
 			return fmt.Errorf("Invalid bencoded packet %v", string(b))
@@ -32,7 +32,7 @@ func (s *Bencoded) Listen(read func(kmsg.Msg, *net.UDPAddr) error) error {
 }
 
 // Write bencoded packets.
-func (s *Bencoded) Write(m map[string]interface{}, node *net.UDPAddr) (err error) {
+func (s Bencoded) Write(m map[string]interface{}, node *net.UDPAddr) (err error) {
 	b, err := bencode.Marshal(m)
 	if err != nil {
 		return

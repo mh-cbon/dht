@@ -3,6 +3,7 @@ package rpc
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -33,39 +34,60 @@ func TestBootstrap(t *testing.T) {
 		}
 	}
 	timeout := time.Millisecond * 10
+	port := 9726
+	newAddr := func() string {
+		ip := "127.0.0.1"
+		addr := fmt.Sprintf("%v:%v", ip, port)
+		port++
+		return addr
+	}
+	makeSocket := func(name string, timeout time.Duration) *socket.RPC {
+		return socket.New(
+			socket.RPCOpts.ID(string(makID(name))),
+			socket.RPCOpts.WithTimeout(timeout),
+			socket.RPCOpts.WithAddr(newAddr()),
+		)
+	}
+	makeRPC := func(name string, timeout time.Duration, opts ...KRPCOpt) *KRPC {
+		opts = append([]KRPCOpt{
+			KRPCOpts.ID(string(makID(name))),
+			KRPCOpts.WithTimeout(timeout),
+			KRPCOpts.WithAddr(newAddr()),
+		}, opts...)
+		return New(opts...)
+	}
 	t.Run("should error when there is no bootstrap", func(t *testing.T) {
-		sock := socket.New(socket.RPCConfig{}.WithTimeout(timeout))
-		rpc := New(sock, KRPCConfig{})
+		rpc := makeRPC("", timeout)
 		_, err := rpc.Boostrap(nil, nil, []string{})
 		wantErr(t, errors.New("nothing to resolve"), err)
 	})
 	t.Run("should error when the bootstrap node address does not exist", func(t *testing.T) {
-		sock := socket.New(socket.RPCConfig{}.WithTimeout(timeout))
-		rpc := New(sock, KRPCConfig{})
-		_, err := rpc.Boostrap(nil, nil, []string{"127.0.0.1:9568"})
+		bob := makeRPC("", timeout)
+		go bob.Listen(nil)
+		defer bob.Close()
+		_, err := bob.Boostrap(nil, nil, []string{"127.0.0.1:9568"})
 		wantErr(t, errors.New("All bootstrap nodes failed [KRPC error 201: Query timeout]"), err)
 	})
 	t.Run("should error when the bootstrap node does not respond", func(t *testing.T) {
-		alice := socket.New(socket.RPCConfig{}.WithAddr("127.0.0.1:9556"))
+		alice := makeSocket("alice", timeout)
 		go alice.MustListen(nil)
 		defer alice.Close()
 
-		bob := socket.New(socket.RPCConfig{}.WithTimeout(timeout))
+		bob := makeRPC("bob", timeout)
 		go bob.Listen(nil)
 		defer bob.Close()
 
-		rpc := New(bob, KRPCConfig{})
-		_, err := rpc.Boostrap(nil, nil, []string{alice.Addr().String()})
+		_, err := bob.Boostrap(nil, nil, []string{alice.GetAddr().String()})
 		wantErr(t, errors.New("All bootstrap nodes failed [KRPC error 201: Query timeout]"), err)
 	})
 	t.Run("should bootstrap when the node respond", func(t *testing.T) {
-		fred := socket.New(socket.RPCConfig{}.WithID(makID("fred")).WithAddr("127.0.0.1:9560"))
+		fred := makeSocket("fred", timeout)
 		defer fred.Close()
 		go fred.MustListen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			return fred.Respond(remote, msg.T, kmsg.Return{})
 		})
 
-		alice := socket.New(socket.RPCConfig{}.WithID(makID("alice")).WithAddr("127.0.0.1:9558"))
+		alice := makeSocket("alice", timeout)
 		defer alice.Close()
 		go alice.MustListen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			return alice.Respond(remote, msg.T, kmsg.Return{
@@ -73,15 +95,14 @@ func TestBootstrap(t *testing.T) {
 			})
 		})
 
-		bob := socket.New(socket.RPCConfig{}.WithID(makID("bob")).WithTimeout(timeout))
+		bob := makeRPC("bob", timeout)
 		go bob.Listen(nil)
 		defer bob.Close()
 
-		rpc := New(bob, KRPCConfig{})
-		_, err := rpc.Boostrap(nil, nil, []string{alice.Addr().String()})
+		_, err := bob.Boostrap(nil, nil, []string{alice.GetAddr().String()})
 		rejectErr(t, err)
 
-		table := rpc.bootstrap
+		table := bob.bootstrap
 		if table.Count() != 1 {
 			t.Errorf("table length incorrect wanted=%v got=%v", 1, table.Count())
 		}
@@ -116,45 +137,43 @@ func TestBootstrap(t *testing.T) {
 		// }
 	})
 	t.Run("should not bootstrap against bad nodes", func(t *testing.T) {
-		alice := socket.New(socket.RPCConfig{}.WithAddr("127.0.0.1:9557"))
+		alice := makeSocket("alice", timeout)
 		defer alice.Close()
 		go alice.MustListen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			return alice.Respond(remote, msg.T, kmsg.Return{})
 		})
 
-		bob := socket.New(socket.RPCConfig{}.WithTimeout(timeout))
+		bob := makeRPC("bob", timeout)
 		go bob.Listen(nil)
 		defer bob.Close()
 
-		rpc := New(bob, KRPCConfig{})
-		rpc.BanNode(alice.Addr())
-		_, err := rpc.Boostrap(nil, nil, []string{alice.Addr().String()})
+		bob.BanNode(alice.GetAddr())
+		_, err := bob.Boostrap(nil, nil, []string{alice.GetAddr().String()})
 		wantErr(t, errors.New("The table is empty after bootstrap"), err)
 
-		table := rpc.bootstrap
+		table := bob.bootstrap
 		if table.Count() > 0 {
 			t.Errorf("Table length incorrect wanted=%v got=%v", 0, table.Count())
 		}
 	})
 	t.Run("should not bootstrap against excluded ips", func(t *testing.T) {
-		alice := socket.New(socket.RPCConfig{}.WithAddr("127.0.0.1:9558"))
+		alice := makeSocket("alice", timeout)
 		defer alice.Close()
 		go alice.MustListen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			return alice.Respond(remote, msg.T, kmsg.Return{})
 		})
 
-		ip := alice.Addr().IP
+		ip := alice.GetAddr().IP
 		ipExclude := newIPRange(net.IP(ip), net.IP(ip), "")
 
-		bob := socket.New(socket.RPCConfig{}.WithIPBlockList(ipExclude).WithTimeout(timeout))
+		bob := makeRPC("bob", timeout, KRPCOpts.BlockIPs(ipExclude))
 		go bob.Listen(nil)
 		defer bob.Close()
 
-		rpc := New(bob, KRPCConfig{})
-		_, err := rpc.Boostrap(nil, nil, []string{alice.Addr().String()})
-		wantErr(t, errors.New("All bootstrap nodes failed [IP blocked 127.0.0.1:9558]"), err)
+		_, err := bob.Boostrap(nil, nil, []string{alice.GetAddr().String()})
+		wantErr(t, fmt.Errorf("All bootstrap nodes failed [IP blocked %v]", alice.GetAddr().String()), err)
 
-		table := rpc.bootstrap
+		table := bob.bootstrap
 		if table.Count() > 0 {
 			t.Errorf("Table length incorrect wanted=%v got=%v", 0, table.Count())
 		}
@@ -164,14 +183,14 @@ func TestBootstrap(t *testing.T) {
 		var fredResponded bool
 		var aliceResponded bool
 
-		fred := socket.New(socket.RPCConfig{}.WithID(makID("fred")).WithAddr("127.0.0.1:9560"))
+		fred := makeSocket("fred", timeout)
 		defer fred.Close()
 		go fred.MustListen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			fredResponded = true
 			return fred.Respond(remote, msg.T, kmsg.Return{})
 		})
 
-		alice := socket.New(socket.RPCConfig{}.WithID(makID("alice")).WithAddr("127.0.0.1:9561"))
+		alice := makeSocket("alice", timeout)
 		defer alice.Close()
 		go alice.MustListen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			aliceResponded = true
@@ -182,15 +201,15 @@ func TestBootstrap(t *testing.T) {
 		})
 
 		<-time.After(time.Millisecond)
-		bob := socket.New(socket.RPCConfig{}.WithTimeout(timeout))
+
+		bob := makeRPC("bob", timeout)
 		go bob.Listen(nil)
 		defer bob.Close()
 
-		rpc := New(bob, KRPCConfig{})
-		_, err := rpc.Boostrap(nil, nil, []string{alice.Addr().String()})
+		_, err := bob.Boostrap(nil, nil, []string{alice.GetAddr().String()})
 		rejectErr(t, err)
 
-		table := rpc.bootstrap
+		table := bob.bootstrap
 		if table.Count() != 1 {
 			t.Errorf("table length incorrect wanted=%v got=%v", 1, table.Count())
 		}

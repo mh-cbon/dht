@@ -32,13 +32,28 @@ func TestBep05(t *testing.T) {
 	// 		return
 	// 	}
 	// }
-	makeSocket := func(name string, ip string, timeout time.Duration) *socket.RPC {
+	newAddr := func() string {
+		ip := "127.0.0.1"
 		addr := fmt.Sprintf("%v:%v", ip, port)
 		port++
-		return socket.New(socket.RPCConfig{}.WithID(makID(name)).WithTimeout(timeout).WithAddr(addr))
+		return addr
+	}
+	makeSocket := func(name string, timeout time.Duration) *socket.RPC {
+		return socket.New(
+			socket.RPCOpts.ID(string(makID(name))),
+			socket.RPCOpts.WithTimeout(timeout),
+			socket.RPCOpts.WithAddr(newAddr()),
+		)
+	}
+	makeRPC := func(name string, timeout time.Duration) *KRPC {
+		return New(
+			KRPCOpts.ID(string(makID(name))),
+			KRPCOpts.WithTimeout(timeout),
+			KRPCOpts.WithAddr(newAddr()),
+		)
 	}
 	t.Run("should make proper find_node request", func(t *testing.T) {
-		alice := makeSocket("alice", "127.0.0.1", timeout)
+		alice := makeSocket("alice", timeout)
 		go alice.MustListen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			if msg.A == nil {
 				t.Errorf("wanted msg.A!=nil, got=%v", nil)
@@ -49,23 +64,22 @@ func TestBep05(t *testing.T) {
 		})
 		defer alice.Close()
 
-		bob := makeSocket("bob", "127.0.0.1", timeout)
+		bob := makeRPC("bob", timeout)
 		go bob.Listen(nil)
 		defer bob.Close()
-		bobRPC := New(bob, KRPCConfig{})
 
 		addrs := []*net.UDPAddr{
-			alice.Addr(),
+			alice.GetAddr(),
 		}
 		id := []byte("abcd")
-		bobRPC.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
-			return bobRPC.FindNode(remote, id[:], func(res kmsg.Msg) {
+		bob.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
+			return bob.FindNode(remote, id[:], func(res kmsg.Msg) {
 				done <- res.E
 			})
 		})
 	})
 	t.Run("should make proper ping request", func(t *testing.T) {
-		alice := makeSocket("alice", "127.0.0.1", timeout)
+		alice := makeSocket("alice", timeout)
 		go alice.MustListen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			if msg.A == nil {
 				t.Errorf("wanted msg.A!=nil, got=%v", nil)
@@ -76,22 +90,21 @@ func TestBep05(t *testing.T) {
 		})
 		defer alice.Close()
 
-		bob := makeSocket("bob", "127.0.0.1", timeout)
+		bob := makeRPC("bob", timeout)
 		go bob.Listen(nil)
 		defer bob.Close()
-		bobRPC := New(bob, KRPCConfig{})
 
 		addrs := []*net.UDPAddr{
-			alice.Addr(),
+			alice.GetAddr(),
 		}
-		bobRPC.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
-			return bobRPC.Ping(remote, func(res kmsg.Msg) {
+		bob.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
+			return bob.Ping(remote, func(res kmsg.Msg) {
 				done <- res.E
 			})
 		})
 	})
 	t.Run("should make proper get_peers request", func(t *testing.T) {
-		alice := makeSocket("alice", "127.0.0.1", timeout)
+		alice := makeSocket("alice", timeout)
 		go alice.MustListen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			if msg.A == nil {
 				t.Errorf("wanted msg.A!=nil, got=%v", nil)
@@ -104,23 +117,22 @@ func TestBep05(t *testing.T) {
 		})
 		defer alice.Close()
 
-		bob := makeSocket("bob", "127.0.0.1", timeout)
+		bob := makeRPC("bob", timeout)
 		go bob.Listen(nil)
 		defer bob.Close()
-		bobRPC := New(bob, KRPCConfig{})
 
 		addrs := []*net.UDPAddr{
-			alice.Addr(),
+			alice.GetAddr(),
 		}
 		id := []byte("abcd")
-		bobRPC.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
-			return bobRPC.GetPeers(remote, id[:], func(res kmsg.Msg) {
+		bob.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
+			return bob.GetPeers(remote, id[:], func(res kmsg.Msg) {
 				done <- res.E
 			})
 		})
 	})
 	t.Run("should make proper announce_peer request", func(t *testing.T) {
-		alice := makeSocket("alice", "127.0.0.1", timeout)
+		alice := makeSocket("alice", timeout)
 		go alice.MustListen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			if msg.A == nil {
 				t.Errorf("wanted msg.A!=nil, got=%v", nil)
@@ -139,17 +151,16 @@ func TestBep05(t *testing.T) {
 		})
 		defer alice.Close()
 
-		bob := makeSocket("bob", "127.0.0.1", timeout)
+		bob := makeRPC("bob", timeout)
 		go bob.Listen(nil)
 		defer bob.Close()
-		bobRPC := New(bob, KRPCConfig{})
 
 		addrs := []*net.UDPAddr{
-			alice.Addr(),
+			alice.GetAddr(),
 		}
 		id := []byte("abcd")
-		bobRPC.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
-			return bobRPC.AnnouncePeer(remote, id[:], "writeToken", 9090, true, func(res kmsg.Msg) {
+		bob.BatchAddrs(addrs, func(remote *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
+			return bob.AnnouncePeer(remote, id[:], "writeToken", 9090, true, func(res kmsg.Msg) {
 				done <- res.E
 			})
 		})

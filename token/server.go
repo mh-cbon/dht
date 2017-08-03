@@ -1,6 +1,7 @@
 package token
 
 import (
+	"crypto/rand"
 	"crypto/sha1"
 	"encoding/binary"
 	"net"
@@ -8,6 +9,11 @@ import (
 
 	"github.com/bradfitz/iter"
 )
+
+// NewDefault returns a pre configured token server.
+func NewDefault(secret []byte) *Server {
+	return NewServer(secret, 5*time.Minute, 2, time.Now)
+}
 
 // Server manages creation and validation of tokens issued to querying nodes.
 type Server struct {
@@ -27,13 +33,21 @@ func NewServer(secret []byte, interval time.Duration, maxIntervalDelta int, time
 		maxIntervalDelta: maxIntervalDelta,
 		timeNow:          timeNow,
 	}
-	copy(ret.secret, secret)
+	ret.SetSecret(secret)
 	return ret
 }
 
-// NewDefault returns a pre configured token server.
-func NewDefault(secret []byte) *Server {
-	return NewServer(secret, 5*time.Minute, 2, time.Now)
+// SetSecret to create tokens.
+func (s *Server) SetSecret(secret []byte) {
+	if secret == nil {
+		secret = make([]byte, 20)
+		rand.Read(secret)
+	}
+	if len(secret) > 20 {
+		secret = secret[:20]
+	}
+	s.secret = make([]byte, len(secret))
+	copy(s.secret, secret)
 }
 
 // CreateToken for given addr.

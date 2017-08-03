@@ -87,9 +87,9 @@ func (d *DHT) Get(addr *net.UDPAddr, hexTarget string, onResponse func(kmsg.Msg)
 	return d.rpc.Get(addr, target, func(res kmsg.Msg) {
 		if res.E == nil && res.R != nil && res.R.Token != "" {
 			d.bep44TokenStore.SetToken(res.R.Token, addr)
-			if onResponse != nil {
-				onResponse(res)
-			}
+		}
+		if onResponse != nil {
+			onResponse(res)
 		}
 	})
 }
@@ -122,7 +122,7 @@ func (d *DHT) GetAll(hexTarget string, addrs ...*net.UDPAddr) (string, error) {
 			})
 		})
 	} else {
-		closests, err := d.ClosestStores(hexTarget, 32)
+		closests, err := d.ClosestStores(hexTarget, 8)
 		if err != nil {
 			return "", err
 		}
@@ -285,8 +285,7 @@ func (d *DHT) PutAll(value string, addrs ...*net.UDPAddr) (string, error) {
 	// Immutable items are stored under their SHA-1 hash,
 	// and since they cannot be modified,
 	// there is no need to authenticate the origin of them. This makes immutable items simple.
-	v := fmt.Sprintf("%v:%v", len(value), value)
-	hexTarget := ValueToHex(v)
+	hexTarget := ValueToHex(value)
 
 	onResponse := func(addr *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
 		return d.Put(addr, value, func(res kmsg.Msg) {
@@ -295,19 +294,20 @@ func (d *DHT) PutAll(value string, addrs ...*net.UDPAddr) (string, error) {
 	}
 
 	var errs []error
-	if len(addrs) > 0 {
+	addrsLen := len(addrs)
+	if addrsLen > 0 {
 		errs = d.rpc.BatchAddrs(addrs, onResponse)
 	} else {
-		closest, err := d.ClosestStores(hexTarget, 32)
+		closest, err := d.ClosestStores(hexTarget, 8)
 		if err != nil {
 			return hexTarget, err
 		}
+		addrsLen = len(closest)
 		errs = d.rpc.BatchNodes(closest, func(remote bucket.ContactIdentifier, done chan<- error) (*socket.Tx, error) {
 			return onResponse(remote.GetAddr(), done)
 		})
 	}
-
-	if len(errs) > 0 {
+	if len(errs) == addrsLen {
 		return hexTarget, fmt.Errorf("Put failed: %v %v", len(errs), errs)
 	}
 	return hexTarget, nil
@@ -395,10 +395,6 @@ func (d *DHT) MPut(addr *net.UDPAddr, value *MutablePut, onResponse func(kmsg.Ms
 func (d *DHT) MPutAll(value *MutablePut, addrs ...*net.UDPAddr) error {
 
 	hexTarget := value.Target
-	// target, e := hex.DecodeString(hexTarget)
-	// if e != nil {
-	// 	return e
-	// }
 
 	onResponse := func(addr *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
 		return d.MPut(addr, value, func(res kmsg.Msg) {
@@ -407,7 +403,8 @@ func (d *DHT) MPutAll(value *MutablePut, addrs ...*net.UDPAddr) error {
 	}
 
 	var errs []error
-	if len(addrs) > 0 {
+	addrsLen := len(addrs)
+	if addrsLen > 0 {
 		errs = d.rpc.BatchAddrs(addrs, onResponse)
 	} else {
 		// get closest nodes.
@@ -420,7 +417,7 @@ func (d *DHT) MPutAll(value *MutablePut, addrs ...*net.UDPAddr) error {
 		})
 	}
 
-	if len(errs) > 0 {
+	if len(errs) == addrsLen {
 		return fmt.Errorf("Put failed: %v %v", len(errs), errs)
 	}
 	return nil

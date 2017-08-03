@@ -33,31 +33,44 @@ func TestBep43(t *testing.T) {
 	// 		return
 	// 	}
 	// }
-	makeSocket := func(name string, ip string, timeout time.Duration) *socket.RPC {
+	newAddr := func() string {
+		ip := "127.0.0.1"
 		addr := fmt.Sprintf("%v:%v", ip, port)
 		port++
-		return socket.New(socket.RPCConfig{}.WithID(makID(name)).WithTimeout(timeout).WithAddr(addr))
+		return addr
+	}
+	makeSocket := func(name string, timeout time.Duration) *socket.RPC {
+		return socket.New(
+			socket.RPCOpts.ID(string(makID(name))),
+			socket.RPCOpts.WithTimeout(timeout),
+			socket.RPCOpts.WithAddr(newAddr()),
+		)
+	}
+	makeRPC := func(name string, timeout time.Duration) *KRPC {
+		return New(
+			KRPCOpts.ID(string(makID(name))),
+			KRPCOpts.WithTimeout(timeout),
+			KRPCOpts.WithAddr(newAddr()),
+		)
 	}
 	t.Run("should ban node if it sends a query with read-only flag", func(t *testing.T) {
-		bob := makeSocket("bob", "127.0.0.1", timeout)
-		bobRPC := New(bob, KRPCConfig{})
-		go bobRPC.Listen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
+
+		bob := makeRPC("bob", timeout)
+		go bob.Listen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			if msg.RO != 1 {
 				t.Errorf("wanted alice to add ro flag=1, got=%v", msg.RO)
 			}
 			return bob.Respond(remote, msg.T, kmsg.Return{V: "hello"})
 		})
-		defer bobRPC.Close()
+		defer bob.Close()
 
-		alice := makeSocket("alice", "127.0.0.1", timeout)
-		go alice.MustListen(nil)
-		defer alice.Close()
+		alice := makeSocket("alice", timeout)
 
 		alice.ReadOnly(true)
-		alice.Query(bob.Addr(), "ping", nil, func(res kmsg.Msg) {})
+		alice.Query(bob.GetAddr(), "ping", nil, func(res kmsg.Msg) {})
 		<-time.After(timeout * 2)
-		if bobRPC.IsBadNode(alice.Addr()) == false {
-			t.Errorf("wanted bob to record alice (%q) as bad node", alice.Addr().String())
+		if bob.IsBadNode(alice.GetAddr()) == false {
+			t.Errorf("wanted bob to record alice (%q) as bad node", alice.GetAddr().String())
 		}
 	})
 }

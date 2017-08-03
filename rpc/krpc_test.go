@@ -32,25 +32,39 @@ func TestKRPC(t *testing.T) {
 			return
 		}
 	}
-	port := 9666
-	makeSocket := func(name string, ip string, timeout time.Duration) *socket.RPC {
+	port := 9166
+	newAddr := func() string {
+		ip := "127.0.0.1"
 		addr := fmt.Sprintf("%v:%v", ip, port)
 		port++
-		return socket.New(socket.RPCConfig{}.WithID(makID(name)).WithTimeout(timeout).WithAddr(addr))
+		return addr
+	}
+	makeSocket := func(name string, timeout time.Duration) *socket.RPC {
+		return socket.New(
+			socket.RPCOpts.ID(string(makID(name))),
+			socket.RPCOpts.WithTimeout(timeout),
+			socket.RPCOpts.WithAddr(newAddr()),
+		)
+	}
+	makeRPC := func(name string, timeout time.Duration) *KRPC {
+		return New(
+			KRPCOpts.ID(string(makID(name))),
+			KRPCOpts.WithTimeout(timeout),
+			KRPCOpts.WithAddr(newAddr()),
+		)
 	}
 	t.Run("should query/respond", func(t *testing.T) {
-		alice := makeSocket("alice", "127.0.0.1", timeout)
+		alice := makeSocket("alice", timeout)
 		go alice.MustListen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			return alice.Respond(remote, msg.T, kmsg.Return{V: "hello"})
 		})
 		defer alice.Close()
 
-		bob := makeSocket("bob", "127.0.0.1", timeout)
+		bob := makeRPC("bob", timeout)
 		go bob.Listen(nil)
 		defer bob.Close()
-		rpc := New(bob, KRPCConfig{})
 
-		_, err := rpc.Query(alice.Addr(), "ping", nil, func(res kmsg.Msg) {
+		_, err := bob.Query(alice.GetAddr(), "ping", nil, func(res kmsg.Msg) {
 			if res.R.V != "hello" {
 				t.Errorf("invalid response, wanted V=%v, got=%v", "hello", res.R.V)
 			}
@@ -59,18 +73,17 @@ func TestKRPC(t *testing.T) {
 		rejectErr(t, err)
 	})
 	t.Run("should query/error", func(t *testing.T) {
-		alice := makeSocket("alice", "127.0.0.1", timeout)
+		alice := makeSocket("alice", timeout)
 		go alice.MustListen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			return alice.Error(remote, msg.T, kmsg.Error{Code: 404})
 		})
 		defer alice.Close()
 
-		bob := makeSocket("bob", "127.0.0.1", timeout)
+		bob := makeRPC("bob", timeout)
 		go bob.Listen(nil)
 		defer bob.Close()
-		rpc := New(bob, KRPCConfig{})
 
-		_, err := rpc.Query(alice.Addr(), "ping", nil, func(res kmsg.Msg) {
+		_, err := bob.Query(alice.GetAddr(), "ping", nil, func(res kmsg.Msg) {
 			if res.E.Code != 404 {
 				t.Errorf("invalid response, wanted V=%v, got=%v", "hello", res.E.Code)
 			}
@@ -79,17 +92,16 @@ func TestKRPC(t *testing.T) {
 		rejectErr(t, err)
 	})
 	t.Run("should query/respond with timeout", func(t *testing.T) {
-		bob := makeSocket("bob", "127.0.0.1", timeout*10)
+		bob := makeRPC("bob", timeout*10)
 		go bob.Listen(nil)
 		defer bob.Close()
-		bobRPC := New(bob, KRPCConfig{})
 
 		addr := &net.UDPAddr{
 			IP:   net.ParseIP("127.0.0.1"),
 			Port: 6556,
 		}
 		now := time.Now()
-		_, err := bobRPC.Query(addr, "ping", nil, func(res kmsg.Msg) {
+		_, err := bob.Query(addr, "ping", nil, func(res kmsg.Msg) {
 			wantErr(t, fmt.Errorf("KRPC error 201: Query timeout"), res.E)
 			d := time.Now().Sub(now)
 			if d < 100*time.Millisecond || d > 120*time.Millisecond {
@@ -100,17 +112,16 @@ func TestKRPC(t *testing.T) {
 		<-time.After(timeout * 14)
 	})
 	t.Run("should call timeout callback", func(t *testing.T) {
-		bob := makeSocket("bob", "127.0.0.1", timeout*10)
+		bob := makeRPC("bob", timeout)
 		go bob.Listen(nil)
 		defer bob.Close()
-		bobRPC := New(bob, KRPCConfig{})
 
 		addr := &net.UDPAddr{
 			IP:   net.ParseIP("127.0.0.1"),
 			Port: 6556,
 		}
 
-		bobRPC.GetPeersStats().OnPeerTimeout("test", func(remote *net.UDPAddr, queriedQ string, queriedA map[string]interface{}, response kmsg.Msg) {
+		bob.GetPeersStats().OnPeerTimeout("test", func(remote *net.UDPAddr, queriedQ string, queriedA map[string]interface{}, response kmsg.Msg) {
 			if remote.String() != addr.String() {
 				t.Errorf("wanted q=%v, got=%v", addr.String(), remote.String())
 			}
@@ -125,31 +136,30 @@ func TestKRPC(t *testing.T) {
 			}
 		})
 
-		_, err := bobRPC.Query(addr, "ping", nil, func(res kmsg.Msg) {})
+		_, err := bob.Query(addr, "ping", nil, func(res kmsg.Msg) {})
 		rejectErr(t, err)
 		<-time.After(timeout * 14)
 	})
 	t.Run("should batch", func(t *testing.T) {
-		alice := makeSocket("alice", "127.0.0.1", timeout)
+		alice := makeSocket("alice", timeout)
 		go alice.Listen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			return alice.Respond(remote, msg.T, kmsg.Return{V: string(alice.GetID())})
 		})
-		fred := makeSocket("fred", "127.0.0.1", timeout)
+		fred := makeSocket("fred", timeout)
 		go fred.Listen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			return fred.Respond(remote, msg.T, kmsg.Return{V: string(fred.GetID())})
 		})
 
-		bob := makeSocket("bob", "127.0.0.1", timeout)
+		bob := makeRPC("bob", timeout)
 		go bob.Listen(nil)
 		defer bob.Close()
-		bobRPC := New(bob, KRPCConfig{})
 
 		ids := []string{string(alice.GetID()), string(fred.GetID())}
-		addrs := []*net.UDPAddr{alice.Addr(), fred.Addr()}
-		errs := bobRPC.Batch(len(addrs), func(i int, done chan<- error) (*socket.Tx, error) {
+		addrs := []*net.UDPAddr{alice.GetAddr(), fred.GetAddr()}
+		errs := bob.Batch(len(addrs), func(i int, done chan<- error) (*socket.Tx, error) {
 			addr := addrs[i]
 			id := ids[i]
-			return bobRPC.Query(addr, "ping", nil, func(res kmsg.Msg) {
+			return bob.Query(addr, "ping", nil, func(res kmsg.Msg) {
 				if res.R.V != string(id) {
 					t.Errorf("Incorrect value received, wanted=%v, got=%v", string(id), res.R.V)
 				}
@@ -163,10 +173,9 @@ func TestKRPC(t *testing.T) {
 	})
 	t.Run("should batch in //", func(t *testing.T) {
 
-		bob := makeSocket("bob", "127.0.0.1", timeout)
+		bob := makeRPC("bob", timeout)
 		go bob.Listen(nil)
 		defer bob.Close()
-		bobRPC := New(bob, KRPCConfig{})
 
 		addrs := []*net.UDPAddr{
 			&net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: port + 1},
@@ -175,8 +184,8 @@ func TestKRPC(t *testing.T) {
 			&net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: port + 4},
 		}
 		now := time.Now()
-		errs := bobRPC.Batch(len(addrs), func(i int, done chan<- error) (*socket.Tx, error) {
-			return bobRPC.Query(addrs[i], "ping", nil, func(res kmsg.Msg) {
+		errs := bob.Batch(len(addrs), func(i int, done chan<- error) (*socket.Tx, error) {
+			return bob.Query(addrs[i], "ping", nil, func(res kmsg.Msg) {
 				done <- res.E
 			})
 		})
@@ -193,12 +202,11 @@ func TestKRPC(t *testing.T) {
 	})
 	t.Run("should return query errors when batching", func(t *testing.T) {
 
-		bob := makeSocket("bob", "127.0.0.1", timeout)
+		bob := makeRPC("bob", timeout)
 		go bob.Listen(nil)
 		defer bob.Close()
-		bobRPC := New(bob, KRPCConfig{})
 
-		errs := bobRPC.Batch(2, func(i int, done chan<- error) (*socket.Tx, error) {
+		errs := bob.Batch(2, func(i int, done chan<- error) (*socket.Tx, error) {
 			return nil, errors.New("nop")
 		})
 		if len(errs) != 2 {
@@ -212,23 +220,22 @@ func TestKRPC(t *testing.T) {
 		<-time.After(timeout * 2)
 	})
 	t.Run("should return response errors when batching", func(t *testing.T) {
-		alice := makeSocket("alice", "127.0.0.1", timeout)
+		alice := makeSocket("alice", timeout)
 		go alice.Listen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			return alice.Error(remote, msg.T, kmsg.Error{Code: 666, Msg: "alice"})
 		})
-		fred := makeSocket("fred", "127.0.0.1", timeout)
+		fred := makeSocket("fred", timeout)
 		go fred.Listen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			return fred.Error(remote, msg.T, kmsg.Error{Code: 666, Msg: "fred"})
 		})
 
-		bob := makeSocket("bob", "127.0.0.1", timeout)
+		bob := makeRPC("bob", timeout)
 		go bob.Listen(nil)
 		defer bob.Close()
-		bobRPC := New(bob, KRPCConfig{})
 
-		addrs := []*net.UDPAddr{alice.Addr(), fred.Addr()}
-		errs := bobRPC.Batch(len(addrs), func(i int, done chan<- error) (*socket.Tx, error) {
-			return bobRPC.Query(addrs[i], "ping", nil, func(res kmsg.Msg) {
+		addrs := []*net.UDPAddr{alice.GetAddr(), fred.GetAddr()}
+		errs := bob.Batch(len(addrs), func(i int, done chan<- error) (*socket.Tx, error) {
+			return bob.Query(addrs[i], "ping", nil, func(res kmsg.Msg) {
 				done <- res.E
 			})
 		})

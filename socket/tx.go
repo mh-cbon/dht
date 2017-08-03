@@ -10,21 +10,38 @@ import (
 	"github.com/mh-cbon/dht/kmsg"
 )
 
+//TxOpt is a option setter
+type TxOpt func(*TxServer)
+
+// TxOpts are tx server options.
+var TxOpts = struct {
+	WithTimeout func(duraton time.Duration) TxOpt
+}{
+	WithTimeout: func(duration time.Duration) TxOpt {
+		return func(s *TxServer) {
+			s.queryTimeout = duration
+		}
+	},
+}
+
 // TxServer manages transactions.
 type TxServer struct {
 	transactions     map[txKey]*Tx
 	transactionIDInt uint64
 	mu               *sync.RWMutex
 	stopped          bool
+	queryTimeout     time.Duration
 }
 
 // NewTxServer creates a server of transactions.
-func NewTxServer(queryTimeout time.Duration) *TxServer {
+func NewTxServer(opts ...TxOpt) *TxServer {
 	ret := &TxServer{
 		transactions: map[txKey]*Tx{},
 		mu:           &sync.RWMutex{},
 	}
-	go ret.loop(queryTimeout)
+	for _, opt := range opts {
+		opt(ret)
+	}
 	return ret
 }
 
@@ -92,7 +109,8 @@ func (s *TxServer) Stop() error {
 // loop all transactions, if they timedout,
 // invoke the response handler with a timeout error of code 201,
 // then deletes the transaction.
-func (s *TxServer) loop(queryTimeout time.Duration) {
+func (s *TxServer) Start() {
+	queryTimeout := s.queryTimeout
 	if queryTimeout < 1 {
 		queryTimeout = time.Second * 3
 	}

@@ -34,7 +34,7 @@ func (k *KRPC) Boostrap(target []byte, publicIP *util.CompactPeer, addrs []strin
 	if target == nil {
 		target = make([]byte, 20)
 	}
-	k.socket.SetID(string(target))
+	k.rpc.SetID(string(target))
 	if k.bootstrap != nil {
 		k.bootstrap.Clear()
 	}
@@ -42,7 +42,7 @@ func (k *KRPC) Boostrap(target []byte, publicIP *util.CompactPeer, addrs []strin
 
 	table := k.bootstrap
 	if publicIP == nil {
-		k := k.socket.Addr()
+		k := k.rpc.GetAddr()
 		publicIP = &util.CompactPeer{IP: k.IP, Port: k.Port}
 	}
 
@@ -83,7 +83,8 @@ func (k *KRPC) Boostrap(target []byte, publicIP *util.CompactPeer, addrs []strin
 	var ncontacts []bucket.ContactIdentifier
 	var gotErr []error
 	for i := 0; i < len(bnContacts); i += 8 {
-		u := k.config.concurrency
+		// u := k.config.concurrency
+		u := k.concurrency
 		if u > i+len(bnContacts) {
 			u = len(bnContacts)
 		}

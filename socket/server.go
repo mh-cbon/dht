@@ -5,31 +5,50 @@ import (
 	"io"
 	"log"
 	"net"
-
-	"github.com/tevino/abool"
 )
+
+//ServerOpt is a option setter
+type ServerOpt func(*Server)
+
+// ServerOpts are net server options.
+var ServerOpts = struct {
+	WithSocket func(socket net.PacketConn) ServerOpt
+	WithAddr   func(addr string) ServerOpt
+}{
+	WithSocket: func(socket net.PacketConn) ServerOpt {
+		return func(s *Server) {
+			s.socket = socket
+		}
+	},
+	WithAddr: func(addr string) ServerOpt {
+		return func(s *Server) {
+			sock, _ := makeSocket(addr)
+			s.socket = sock
+		}
+	},
+}
+
+// NewServer prepares a new server.
+func NewServer(opts ...ServerOpt) *Server {
+	ret := &Server{}
+	for _, opt := range opts {
+		opt(ret)
+	}
+	if ret.socket == nil {
+		sock, _ := makeSocket("")
+		ret.socket = sock
+	}
+	return ret
+}
 
 // Server is udp reader/writer
 type Server struct {
 	socket net.PacketConn
-	config ServerConfig
-	open   *abool.AtomicBool
-}
-
-// NewServer prepares a new server.
-func NewServer(config ServerConfig) *Server {
-	ret := &Server{
-		config: config,
-		open:   abool.New(),
-	}
-	sock, _ := makeSocket(config.Addr)
-	ret.socket = sock
-	return ret
 }
 
 // Listen reads ppackets of 0x10000 max bytes.
 func (s *Server) Listen(read func([]byte, *net.UDPAddr) error) error {
-	s.open.UnSet()
+	// s.open.UnSet()
 	var b [0x10000]byte
 	for {
 		n, addr, readErr := s.socket.ReadFrom(b[:])
@@ -80,18 +99,6 @@ func (s *Server) Close() (err error) {
 // Addr returns the local address.
 func (s *Server) Addr() *net.UDPAddr {
 	return s.socket.LocalAddr().(*net.UDPAddr)
-}
-
-// ServerConfig allows to set up a  configuration of the `Server` instance
-// to be created with NewServer
-type ServerConfig struct {
-	Addr string
-}
-
-// WithAddr of the socket.
-func (c ServerConfig) WithAddr(addr string) ServerConfig {
-	c.Addr = addr
-	return c
 }
 
 func makeSocket(addr string) (socket *net.UDPConn, err error) {

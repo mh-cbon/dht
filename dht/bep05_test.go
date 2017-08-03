@@ -9,7 +9,6 @@ import (
 
 	"github.com/mh-cbon/dht/kmsg"
 	"github.com/mh-cbon/dht/rpc"
-	"github.com/mh-cbon/dht/socket"
 )
 
 func makID(in string) []byte {
@@ -42,14 +41,25 @@ func TestBep05(t *testing.T) {
 	// 		return
 	// 	}
 	// }
-	makeSocket := func(name string, ip string, timeout time.Duration) *socket.RPC {
+	newAddr := func() string {
+		ip := "127.0.0.1"
 		addr := fmt.Sprintf("%v:%v", ip, port)
 		port++
-		return socket.New(socket.RPCConfig{}.WithID(makID(name)).WithTimeout(timeout).WithAddr(addr))
+		return addr
 	}
-	makeRPC := func(name string, ip string, timeout time.Duration) *rpc.KRPC {
-		soc := makeSocket(name, ip, timeout)
-		return rpc.New(soc, rpc.KRPCConfig{})
+	makeRPC := func(name string, timeout time.Duration) *rpc.KRPC {
+		return rpc.New(
+			rpc.KRPCOpts.WithAddr(newAddr()),
+			rpc.KRPCOpts.ID(string(makID(name))),
+			rpc.KRPCOpts.WithTimeout(timeout),
+		)
+	}
+	makeDHT := func(name string, timeout time.Duration) *DHT {
+		return New(
+			Opts.WithAddr(newAddr()),
+			Opts.ID(string(makID(name))),
+			Opts.WithTimeout(timeout),
+		)
 	}
 	rejectErrMsg := func(t *testing.T, msg kmsg.Msg) {
 		if msg.E != nil {
@@ -81,17 +91,16 @@ func TestBep05(t *testing.T) {
 		}
 	}
 	t.Run("should answer to find_node request", func(t *testing.T) {
-		alice := makeRPC("alice", "127.0.0.1", timeout)
+		alice := makeRPC("alice", timeout)
 		go alice.MustListen(nil)
 		defer alice.Close()
 
-		bob := makeRPC("bob", "127.0.0.1", timeout)
-		node := New(nil, bob)
+		node := makeDHT("bob", timeout)
 		defer node.Close()
-		node.Listen(func(arg1 *DHT) error {
+		node.Serve(func(arg1 *DHT) error {
 			w := make(chan bool)
 			goodTargetID := []byte(strings.Repeat("a", 20))
-			alice.FindNode(bob.Addr(), goodTargetID, func(msg kmsg.Msg) {
+			alice.FindNode(node.GetAddr(), goodTargetID, func(msg kmsg.Msg) {
 				rejectErrMsg(t, msg)
 				rejectArgMsg(t, msg)
 				wantRetID(t, msg, "bob\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
@@ -103,17 +112,16 @@ func TestBep05(t *testing.T) {
 		})
 	})
 	t.Run("should not answer to find_node request with bad target id", func(t *testing.T) {
-		alice := makeRPC("alice", "127.0.0.1", timeout)
+		alice := makeRPC("alice", timeout)
 		go alice.MustListen(nil)
 		defer alice.Close()
 
-		bob := makeRPC("bob", "127.0.0.1", timeout)
-		node := New(nil, bob)
+		node := makeDHT("bob", timeout)
 		defer node.Close()
-		node.Listen(func(arg1 *DHT) error {
+		node.Serve(func(arg1 *DHT) error {
 			w := make(chan bool)
 			badTargetID := []byte("abcd")
-			alice.FindNode(bob.Addr(), badTargetID, func(msg kmsg.Msg) {
+			alice.FindNode(node.GetAddr(), badTargetID, func(msg kmsg.Msg) {
 				rejectRetMsg(t, msg)
 				rejectArgMsg(t, msg)
 				wantErrCode(t, msg, kmsg.ErrorTimeout.Code)
@@ -125,16 +133,15 @@ func TestBep05(t *testing.T) {
 	})
 
 	t.Run("should answer to ping request", func(t *testing.T) {
-		alice := makeRPC("alice", "127.0.0.1", timeout)
+		alice := makeRPC("alice", timeout)
 		go alice.MustListen(nil)
 		defer alice.Close()
 
-		bob := makeRPC("bob", "127.0.0.1", timeout)
-		node := New(nil, bob)
+		node := makeDHT("bob", timeout)
 		defer node.Close()
-		node.Listen(func(arg1 *DHT) error {
+		node.Serve(func(arg1 *DHT) error {
 			w := make(chan bool)
-			alice.Ping(bob.Addr(), func(msg kmsg.Msg) {
+			alice.Ping(node.GetAddr(), func(msg kmsg.Msg) {
 				rejectErrMsg(t, msg)
 				rejectArgMsg(t, msg)
 				wantRetID(t, msg, "bob\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
@@ -146,23 +153,22 @@ func TestBep05(t *testing.T) {
 	})
 
 	t.Run("should answer to get_peers request", func(t *testing.T) {
-		alice := makeRPC("alice", "127.0.0.1", timeout)
+		alice := makeRPC("alice", timeout)
 		go alice.MustListen(nil)
 		defer alice.Close()
 
-		bob := makeRPC("bob", "127.0.0.1", timeout)
-		node := New(nil, bob)
+		node := makeDHT("bob", timeout)
 		defer node.Close()
-		node.Listen(func(arg1 *DHT) error {
+		node.Serve(func(arg1 *DHT) error {
 			w := make(chan bool)
 			goodTargetID := []byte(strings.Repeat("a", 20))
-			alice.GetPeers(bob.Addr(), goodTargetID, func(msg kmsg.Msg) {
+			alice.GetPeers(node.GetAddr(), goodTargetID, func(msg kmsg.Msg) {
 				rejectErrMsg(t, msg)
 				rejectArgMsg(t, msg)
 				wantRetID(t, msg, "bob\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
 				if msg.R.Token == "" {
 					t.Errorf("wanted msg.R.Token=%v, got=%v", "", msg.R.Token)
-				} else if node.ValidateToken(msg.R.Token, alice.Addr()) == false {
+				} else if node.ValidateToken(msg.R.Token, alice.GetAddr()) == false {
 					t.Errorf("wanted valid token, got=%v", false)
 				}
 				//todo: add testing of peers field
@@ -174,17 +180,16 @@ func TestBep05(t *testing.T) {
 		})
 	})
 	t.Run("should not answer to get_peers request with bad target id", func(t *testing.T) {
-		alice := makeRPC("alice", "127.0.0.1", timeout)
+		alice := makeRPC("alice", timeout)
 		go alice.MustListen(nil)
 		defer alice.Close()
 
-		bob := makeRPC("bob", "127.0.0.1", timeout)
-		node := New(nil, bob)
+		node := makeDHT("bob", timeout)
 		defer node.Close()
-		node.Listen(func(arg1 *DHT) error {
+		node.Serve(func(arg1 *DHT) error {
 			w := make(chan bool)
 			badTargetID := []byte("abcd")
-			alice.GetPeers(bob.Addr(), badTargetID, func(msg kmsg.Msg) {
+			alice.GetPeers(node.GetAddr(), badTargetID, func(msg kmsg.Msg) {
 				rejectRetMsg(t, msg)
 				rejectArgMsg(t, msg)
 				wantErrCode(t, msg, kmsg.ErrorTimeout.Code)
@@ -196,29 +201,28 @@ func TestBep05(t *testing.T) {
 	})
 
 	t.Run("should answer to announce_peer request with valid token", func(t *testing.T) {
-		alice := makeRPC("alice", "127.0.0.1", timeout)
+		alice := makeRPC("alice", timeout)
 		go alice.MustListen(nil)
 		defer alice.Close()
 
-		bob := makeRPC("bob", "127.0.0.1", timeout)
-		node := New(nil, bob)
+		node := makeDHT("bob", timeout)
 		defer node.Close()
-		node.Listen(func(arg1 *DHT) error {
+		node.Serve(func(arg1 *DHT) error {
 			w := make(chan bool)
 			goodTargetID := []byte(strings.Repeat("a", 20))
-			alice.GetPeers(bob.Addr(), goodTargetID, func(msg kmsg.Msg) {
+			alice.GetPeers(node.GetAddr(), goodTargetID, func(msg kmsg.Msg) {
 				rejectErrMsg(t, msg)
 				rejectArgMsg(t, msg)
 				wantRetID(t, msg, "bob\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
 				if msg.R.Token == "" {
 					t.Errorf("wanted msg.R.Token!=%q, got=%#v", "", msg.R.Token)
 				}
-				alice.AnnouncePeer(bob.Addr(), goodTargetID, msg.R.Token, 40, false, func(msg kmsg.Msg) {
+				alice.AnnouncePeer(node.GetAddr(), goodTargetID, msg.R.Token, 40, false, func(msg kmsg.Msg) {
 					rejectErrMsg(t, msg)
 					rejectArgMsg(t, msg)
 					wantRetID(t, msg, "bob\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
 
-					alice.GetPeers(bob.Addr(), goodTargetID, func(msg kmsg.Msg) {
+					alice.GetPeers(node.GetAddr(), goodTargetID, func(msg kmsg.Msg) {
 						rejectErrMsg(t, msg)
 						rejectArgMsg(t, msg)
 						wantRetID(t, msg, "bob\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
@@ -228,7 +232,7 @@ func TestBep05(t *testing.T) {
 							t.Errorf("Wanted len(msg.R.Values)>0, got=%v", len(msg.R.Values))
 						} else {
 							c := msg.R.Values[0]
-							w := fmt.Sprintf("%v:%v", alice.Addr().IP, 40) // becasue implied port = false
+							w := fmt.Sprintf("%v:%v", alice.GetAddr().IP, 40) // becasue implied port = false
 							g := fmt.Sprintf("%v:%v", c.IP, c.Port)
 							if w != g {
 								t.Errorf("wanted msg.R.Values=%v, got=%v", w, g)
@@ -243,17 +247,16 @@ func TestBep05(t *testing.T) {
 		})
 	})
 	t.Run("should not answer to announce_peer request with bad target id", func(t *testing.T) {
-		alice := makeRPC("alice", "127.0.0.1", timeout)
+		alice := makeRPC("alice", timeout)
 		go alice.MustListen(nil)
 		defer alice.Close()
 
-		bob := makeRPC("bob", "127.0.0.1", timeout)
-		node := New(nil, bob)
+		node := makeDHT("bob", timeout)
 		defer node.Close()
-		node.Listen(func(arg1 *DHT) error {
+		node.Serve(func(arg1 *DHT) error {
 			w := make(chan bool)
 			badTargetID := []byte("abcd")
-			alice.AnnouncePeer(bob.Addr(), badTargetID, "", 40, true, func(msg kmsg.Msg) {
+			alice.AnnouncePeer(node.GetAddr(), badTargetID, "", 40, true, func(msg kmsg.Msg) {
 				rejectRetMsg(t, msg)
 				rejectArgMsg(t, msg)
 				wantErrCode(t, msg, kmsg.ErrorTimeout.Code)
@@ -264,17 +267,16 @@ func TestBep05(t *testing.T) {
 		})
 	})
 	t.Run("should not answer to announce_peer request with empty token", func(t *testing.T) {
-		alice := makeRPC("alice", "127.0.0.1", timeout)
+		alice := makeRPC("alice", timeout)
 		go alice.MustListen(nil)
 		defer alice.Close()
 
-		bob := makeRPC("bob", "127.0.0.1", timeout)
-		node := New(nil, bob)
+		node := makeDHT("bob", timeout)
 		defer node.Close()
-		node.Listen(func(arg1 *DHT) error {
+		node.Serve(func(arg1 *DHT) error {
 			w := make(chan bool)
 			goodTargetID := []byte(strings.Repeat("a", 20))
-			alice.AnnouncePeer(bob.Addr(), goodTargetID, "", 40, true, func(msg kmsg.Msg) {
+			alice.AnnouncePeer(node.GetAddr(), goodTargetID, "", 40, true, func(msg kmsg.Msg) {
 				rejectRetMsg(t, msg)
 				rejectArgMsg(t, msg)
 				wantErrCode(t, msg, kmsg.ErrorTimeout.Code)
@@ -285,18 +287,17 @@ func TestBep05(t *testing.T) {
 		})
 	})
 	t.Run("should respond error to announce_peer request with wrong token", func(t *testing.T) {
-		alice := makeRPC("alice", "127.0.0.1", timeout)
+		alice := makeRPC("alice", timeout)
 		go alice.MustListen(nil)
 		defer alice.Close()
 
-		bob := makeRPC("bob", "127.0.0.1", timeout)
-		node := New(nil, bob)
+		node := makeDHT("bob", timeout)
 		defer node.Close()
-		node.Listen(func(arg1 *DHT) error {
+		node.Serve(func(arg1 *DHT) error {
 			w := make(chan bool)
 			goodTargetID := []byte(strings.Repeat("a", 20))
 			writeToken := "nop"
-			alice.AnnouncePeer(bob.Addr(), goodTargetID, writeToken, 40, true, func(msg kmsg.Msg) {
+			alice.AnnouncePeer(node.GetAddr(), goodTargetID, writeToken, 40, true, func(msg kmsg.Msg) {
 				rejectRetMsg(t, msg)
 				rejectArgMsg(t, msg)
 				wantErrCode(t, msg, kmsg.ErrorBadToken.Code)

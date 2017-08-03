@@ -32,115 +32,128 @@ func TestPeerStats(t *testing.T) {
 	// 		return
 	// 	}
 	// }
-	makeSocket := func(name string, ip string, timeout time.Duration) *socket.RPC {
+	newAddr := func() string {
+		ip := "127.0.0.1"
 		addr := fmt.Sprintf("%v:%v", ip, port)
 		port++
-		return socket.New(socket.RPCConfig{}.WithID(makID(name)).WithTimeout(timeout).WithAddr(addr))
+		return addr
+	}
+	makeSocket := func(name string, timeout time.Duration) *socket.RPC {
+		return socket.New(
+			socket.RPCOpts.ID(string(makID(name))),
+			socket.RPCOpts.WithTimeout(timeout),
+			socket.RPCOpts.WithAddr(newAddr()),
+		)
+	}
+	makeRPC := func(name string, timeout time.Duration) *KRPC {
+		return New(
+			KRPCOpts.ID(string(makID(name))),
+			KRPCOpts.WithTimeout(timeout),
+			KRPCOpts.WithAddr(newAddr()),
+		)
 	}
 	t.Run("should ban node if it responds with 3 timeouts", func(t *testing.T) {
-		bob := makeSocket("bob", "127.0.0.1", timeout)
-		bobRPC := New(bob, KRPCConfig{})
-		go bobRPC.Listen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
+		bob := makeRPC("bob", timeout)
+		go bob.Listen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			if msg.RO != 1 {
 				t.Errorf("wanted alice to add ro flag=1, got=%v", msg.RO)
 			}
 			return bob.Respond(remote, msg.T, kmsg.Return{V: "hello"})
 		})
-		defer bobRPC.Close()
+		defer bob.Close()
 
 		ad := &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: port + 1}
 		addrs := []*net.UDPAddr{ad, ad, ad, ad, ad}
-		bobRPC.BatchAddrs(addrs, func(addr *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
-			return bobRPC.Query(addr, "ping", nil, func(res kmsg.Msg) {
+		bob.BatchAddrs(addrs, func(addr *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
+			return bob.Query(addr, "ping", nil, func(res kmsg.Msg) {
 				done <- res.E
 			})
 		})
 		<-time.After(timeout * 2)
-		if bobRPC.IsBadNode(ad) == false {
+		if bob.IsBadNode(ad) == false {
 			t.Errorf("wanted bob to ban %q", ad.String())
 		}
 	})
 	t.Run("should ban node if it is ro", func(t *testing.T) {
-		bob := makeSocket("bob", "127.0.0.1", timeout)
-		bobRPC := New(bob, KRPCConfig{})
-		go bobRPC.Listen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
+		bob := makeRPC("bob", timeout)
+		go bob.Listen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			if msg.RO != 1 {
 				t.Errorf("wanted alice to add ro flag=1, got=%v", msg.RO)
 			}
 			return bob.Respond(remote, msg.T, kmsg.Return{V: "hello"})
 		})
-		defer bobRPC.Close()
+		defer bob.Close()
 
-		alice := makeSocket("alice", "127.0.0.1", timeout)
+		alice := makeSocket("alice", timeout)
 		go alice.MustListen(nil)
 		defer alice.Close()
+
 		alice.ReadOnly(true)
-		alice.Query(bob.Addr(), "ping", nil, func(res kmsg.Msg) {})
+		alice.Query(bob.GetAddr(), "ping", nil, func(res kmsg.Msg) {})
 		<-time.After(timeout * 2)
-		if bobRPC.IsBadNode(alice.Addr()) == false {
-			t.Errorf("wanted bob to ban alice (%q)", alice.Addr().String())
+		if bob.IsBadNode(alice.GetAddr()) == false {
+			t.Errorf("wanted bob to ban alice (%q)", alice.GetAddr().String())
 		}
 	})
 	t.Run("should unban node if it is not ro anymore", func(t *testing.T) {
-		bob := makeSocket("bob", "127.0.0.1", timeout)
-		bobRPC := New(bob, KRPCConfig{})
-		go bobRPC.Listen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
+		bob := makeRPC("bob", timeout)
+		go bob.Listen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			return bob.Respond(remote, msg.T, kmsg.Return{V: "hello"})
 		})
-		defer bobRPC.Close()
+		defer bob.Close()
 
-		alice := makeSocket("alice", "127.0.0.1", timeout)
+		alice := makeSocket("alice", timeout)
 		go alice.MustListen(nil)
 		defer alice.Close()
+
 		alice.ReadOnly(true)
-		alice.Query(bob.Addr(), "ping", nil, func(res kmsg.Msg) {})
+		alice.Query(bob.GetAddr(), "ping", nil, func(res kmsg.Msg) {})
 		<-time.After(timeout * 2)
-		if bobRPC.IsBadNode(alice.Addr()) == false {
-			t.Errorf("wanted bob to ban alice (%q)", alice.Addr().String())
+		if bob.IsBadNode(alice.GetAddr()) == false {
+			t.Errorf("wanted bob to ban alice (%q)", alice.GetAddr().String())
 		}
 		alice.ReadOnly(false)
-		alice.Query(bob.Addr(), "ping", nil, func(res kmsg.Msg) {})
+		alice.Query(bob.GetAddr(), "ping", nil, func(res kmsg.Msg) {})
 		<-time.After(timeout * 2)
-		if bobRPC.IsBadNode(alice.Addr()) {
-			t.Errorf("wanted bob to unban alice (%q)", alice.Addr().String())
+		if bob.IsBadNode(alice.GetAddr()) {
+			t.Errorf("wanted bob to unban alice (%q)", alice.GetAddr().String())
 		}
 	})
 	t.Run("should unban node if it responds", func(t *testing.T) {
-		bob := makeSocket("bob", "127.0.0.1", timeout)
-		bobRPC := New(bob, KRPCConfig{})
-		go bobRPC.Listen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
+		bob := makeRPC("bob", timeout)
+		go bob.Listen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
 			if msg.RO != 1 {
 				t.Errorf("wanted alice to add ro flag=1, got=%v", msg.RO)
 			}
 			return bob.Respond(remote, msg.T, kmsg.Return{V: "hello"})
 		})
-		defer bobRPC.Close()
+		defer bob.Close()
 
 		ad := &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: port + 1}
 		addrs := []*net.UDPAddr{ad, ad, ad, ad, ad}
-		bobRPC.BatchAddrs(addrs, func(addr *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
-			return bobRPC.Query(addr, "ping", nil, func(res kmsg.Msg) {
+		bob.BatchAddrs(addrs, func(addr *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
+			return bob.Query(addr, "ping", nil, func(res kmsg.Msg) {
 				done <- res.E
 			})
 		})
 		<-time.After(timeout * 2)
-		if bobRPC.IsBadNode(ad) == false {
+		if bob.IsBadNode(ad) == false {
 			t.Errorf("wanted bob to record %q as bad node", ad.String())
 		}
 
-		alice := makeSocket("alice", "127.0.0.1", timeout)
+		alice := makeSocket("alice", timeout)
 		go alice.MustListen(nil)
 		defer alice.Close()
 
-		addrs = []*net.UDPAddr{alice.Addr()}
-		bobRPC.BatchAddrs(addrs, func(addr *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
-			return bobRPC.Query(addr, "ping", nil, func(res kmsg.Msg) {
+		addrs = []*net.UDPAddr{alice.GetAddr()}
+		bob.BatchAddrs(addrs, func(addr *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
+			return bob.Query(addr, "ping", nil, func(res kmsg.Msg) {
 				done <- res.E
 			})
 		})
 		<-time.After(timeout * 2)
-		if bobRPC.IsBadNode(alice.Addr()) {
-			t.Errorf("wanted bob to unban alice (%q)", alice.Addr().String())
+		if bob.IsBadNode(alice.GetAddr()) {
+			t.Errorf("wanted bob to unban alice (%q)", alice.GetAddr().String())
 		}
 	})
 }

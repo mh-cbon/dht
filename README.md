@@ -1,6 +1,6 @@
 # dht
 
-[![travis Status](https://travis-ci.org/mh-cbon/dht.svg?branch=master)](https://travis-ci.org/mh-cbon/dht) [![Appveyor Status](https://ci.appveyor.com/api/projects/status/github/mh-cbon/dht?branch=master&svg=true)](https://ci.appveyor.com/projects/mh-cbon/dht) [![Go Report Card](https://goreportcard.com/badge/github.com/mh-cbon/dht)](https://goreportcard.com/report/github.com/mh-cbon/dht) [![GoDoc](https://godoc.org/github.com/mh-cbon/dht?status.svg)](http://godoc.org/github.com/mh-cbon/dht) [![MIT License](http://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![travis Status](https://travis-ci.org/mh-cbon/dht.svg?branch=master)](https://travis-ci.org/mh-cbon/dht) [![Go Report Card](https://goreportcard.com/badge/github.com/mh-cbon/dht)](https://goreportcard.com/report/github.com/mh-cbon/dht) [![GoDoc](https://godoc.org/github.com/mh-cbon/dht?status.svg)](http://godoc.org/github.com/mh-cbon/dht) [![MIT License](http://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Package dht is a kademlia implementation of a Distributed Hash Table.
 
@@ -36,19 +36,22 @@ import (
 	"github.com/mh-cbon/dht/logger"
 )
 
-func main() {
+func main2() {
 	var v bool
 	flag.BoolVar(&v, "vv", false, "verbose mode")
 	flag.Parse()
 
-	listen := func(d *dht.DHT) error {
+	ready := func(d *dht.DHT) error {
 		if v {
 			d.AddLogger(logger.Text(log.Printf))
 		}
 		fmt.Println("Running bootstrap...")
-		err := d.BootstrapAuto(nil, bootstrap.Public)
+		publicIP, err := d.BootstrapAuto(nil, bootstrap.Public)
 		if err != nil {
 			return err
+		}
+		if publicIP != nil {
+			log.Printf("public IP bootstrap %v:%v\n", publicIP.IP, publicIP.Port)
 		}
 
 		selfID := []byte(d.ID())
@@ -81,7 +84,7 @@ func main() {
 		}
 		return nil
 	}
-	if err := dht.New(nil, nil).Listen(listen); err != nil {
+	if err := dht.New(dht.DefaultOps()).Serve(ready); err != nil {
 		if err != nil {
 			log.Fatal(err)
 		}
