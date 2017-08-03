@@ -13,7 +13,7 @@ import (
 //todo : move to socket package.
 func TestBep43(t *testing.T) {
 	timeout := time.Millisecond * 10
-	port := 9686
+	port := 9406
 	// wantErr := func(t *testing.T, wanted error, got error) {
 	// 	if got == nil {
 	// 		t.Errorf("Wanted err=%v, got err=%v", wanted, got)

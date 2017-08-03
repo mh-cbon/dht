@@ -11,7 +11,7 @@ import (
 
 func TestRPC(t *testing.T) {
 
-	port := 9606
+	port := 8006
 	newAddr := func() string {
 		ip := "127.0.0.1"
 		addr := fmt.Sprintf("%v:%v", ip, port)

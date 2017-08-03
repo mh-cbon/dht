@@ -13,7 +13,7 @@ import (
 
 func TestCLimit(t *testing.T) {
 
-	port := 9666
+	port := 9906
 	newAddr := func() string {
 		ip := "127.0.0.1"
 		addr := fmt.Sprintf("%v:%v", ip, port)

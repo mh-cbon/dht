@@ -32,7 +32,7 @@ func TestKRPC(t *testing.T) {
 			return
 		}
 	}
-	port := 9166
+	port := 9706
 	newAddr := func() string {
 		ip := "127.0.0.1"
 		addr := fmt.Sprintf("%v:%v", ip, port)

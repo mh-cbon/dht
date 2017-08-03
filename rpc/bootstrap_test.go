@@ -34,7 +34,7 @@ func TestBootstrap(t *testing.T) {
 		}
 	}
 	timeout := time.Millisecond * 10
-	port := 9726
+	port := 9606
 	newAddr := func() string {
 		ip := "127.0.0.1"
 		addr := fmt.Sprintf("%v:%v", ip, port)
