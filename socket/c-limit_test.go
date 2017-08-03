@@ -79,8 +79,8 @@ func TestCLimit(t *testing.T) {
 		}
 		done <- true
 
-		alice.Close()
 		bob.Close()
+		alice.Close()
 		<-time.After(time.Millisecond)
 	})
 	t.Run("should not exceed query limit2", func(t *testing.T) {
@@ -109,8 +109,8 @@ func TestCLimit(t *testing.T) {
 
 		<-time.After(time.Millisecond * 250)
 
-		alice.Close()
 		bob.Close()
+		alice.Close()
 	})
 
 }
