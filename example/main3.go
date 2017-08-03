@@ -37,7 +37,7 @@ func shitfId(id []byte, n int) [][]byte {
 	return ret
 }
 
-func main3() {
+func main() {
 	var v bool
 	flag.BoolVar(&v, "vv", false, "verbose mode")
 	flag.Parse()
