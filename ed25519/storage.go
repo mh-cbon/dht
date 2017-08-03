@@ -58,13 +58,13 @@ func PvkFromDir(dir, name string) (PrivateKey, ed25519.PublicKey, error) {
 }
 
 // PvkFromHex returns an ed25519.PrivateKey given an hex representation.
-func PvkFromHex(pbk string) (ed25519.PrivateKey, ed25519.PublicKey, error) {
-	k, err := hex.DecodeString(pbk)
+func PvkFromHex(pvkHex string) (PrivateKey, ed25519.PublicKey, error) {
+	k, err := hex.DecodeString(pvkHex)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	pvk := ed25519.PrivateKey(k)
+	pvk := PrivateKey(k)
 	return pvk, PublicKeyFromPvk(pvk), nil
 }
 
