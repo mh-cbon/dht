@@ -3,7 +3,6 @@ package dht
 import (
 	"encoding/hex"
 	"fmt"
-	"log"
 	"net"
 	"sync"
 	"time"
@@ -33,8 +32,6 @@ func (d *DHT) OnGet(msg kmsg.Msg, remote *net.UDPAddr) error {
 		return fmt.Errorf("bad target len: %v", msg)
 	}
 	hexTarget := HexFromBytes([]byte(target))
-	// x := hex.EncodeToString([]byte(target))
-	// hexTarget := string(x)
 
 	v := ""
 	var k []byte
@@ -42,8 +39,6 @@ func (d *DHT) OnGet(msg kmsg.Msg, remote *net.UDPAddr) error {
 	var seq int
 	d.bep44ValueStore.Transact(func(store *ValueStore) {
 		// If a stored item exists,
-		log.Println("target", target)
-		log.Println("hexTarget", hexTarget)
 		if s, ok := store.Get(hexTarget); ok {
 			// but its sequence number is less than or equal to the seq field
 			// or its expired
@@ -226,11 +221,19 @@ func (d *DHT) OnPut(msg kmsg.Msg, remote *net.UDPAddr) error {
 		return d.Error(remote, msg.T, *err)
 	}
 
-	var target string
+	var hexTarget string
+	if len(msg.A.K) > 0 {
+		// for mutable message storeID is sha1(publicKey + salt)
+		hexTarget = crypto.HashSha1(string(msg.A.K), msg.A.Salt)
+	} else {
+		// for immutable message storeID is the hash of the value
+		hexTarget = ValueToHex(msg.A.V)
+	}
+
 	var retErr error
 	d.bep44ValueStore.Transact(func(store *ValueStore) {
 		if len(msg.A.K) > 0 {
-			if s, ok := store.Get(target); ok {
+			if s, ok := store.Get(hexTarget); ok {
 				if msg.A.Seq < s.Seq {
 					retErr = d.Error(remote, msg.T, kmsg.ErrorSeqLessThanCurrent)
 					return
@@ -240,14 +243,8 @@ func (d *DHT) OnPut(msg kmsg.Msg, remote *net.UDPAddr) error {
 					return
 				}
 			}
-			// for mutable message storeID is sha1(publicKey + salt)
-			v := fmt.Sprintf("%v%v", string(msg.A.K), msg.A.Salt)
-			target = ValueToHex(v)
-		} else {
-			// for immutable message storeID is the hash of the value
-			target = ValueToHex(msg.A.V)
 		}
-		if err := store.AddOrTouch(target, msg.A.V); err != nil {
+		if err := store.AddOrTouch(hexTarget, msg.A.V, msg.A.Seq, msg.A.Cas, msg.A.K, msg.A.Sign); err != nil {
 			d.Error(remote, msg.T, kmsg.ErrorInternalIssue)
 			retErr = err // send the store error to the main loop for printing (we don t care if remote does not receive the 501 error)
 		} else {
@@ -346,7 +343,7 @@ type MutablePut struct {
 	Sign   []byte
 	Seq    int
 	Cas    int
-	Target string
+	Target string // hex target
 }
 
 // PutFromPbk creates a mutable put message using a pbk.

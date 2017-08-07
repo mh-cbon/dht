@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mh-cbon/dht/ed25519"
 	"github.com/mh-cbon/dht/kmsg"
 	"github.com/mh-cbon/dht/rpc"
 )
@@ -25,13 +26,13 @@ func TestBep44(t *testing.T) {
 	// 		return
 	// 	}
 	// }
-	// rejectErr := func(t *testing.T, got error) {
-	// 	if got != nil {
-	// 		t.Errorf("Wanted err=%v, got err=%v", nil, got)
-	// 		t.FailNow()
-	// 		return
-	// 	}
-	// }
+	rejectErr := func(t *testing.T, got error) {
+		if got != nil {
+			t.Errorf("Wanted err=%v, got err=%v", nil, got)
+			t.FailNow()
+			return
+		}
+	}
 	newAddr := func() string {
 		ip := "127.0.0.1"
 		addr := fmt.Sprintf("%v:%v", ip, port)
@@ -78,7 +79,14 @@ func TestBep44(t *testing.T) {
 		if msg.R == nil {
 			t.Errorf("wanted msg.R!=nil, got=%v", nil)
 		} else if msg.R.ID != id {
-			t.Errorf("wanted msg.R.Id=%v, got=%#v", "bob", msg.R.ID)
+			t.Errorf("wanted msg.R.Id=%v, got=%#v", id, msg.R.ID)
+		}
+	}
+	wantRetVal := func(t *testing.T, msg kmsg.Msg, v string) {
+		if msg.R == nil {
+			t.Errorf("wanted msg.R!=nil, got=%v", nil)
+		} else if msg.R.V != v {
+			t.Errorf("wanted msg.R.V=%v, got=%#v", v, msg.R.V)
 		}
 	}
 
@@ -259,4 +267,36 @@ func TestBep44(t *testing.T) {
 		})
 	})
 
+	t.Run("should store mutable request", func(t *testing.T) {
+		alice := makeDHT("alice", timeout)
+		go alice.Listen(nil)
+		defer alice.Close()
+
+		node := makeDHT("bob", timeout)
+		defer node.Close()
+		node.Serve(func(arg1 *DHT) error {
+			w := make(chan bool)
+
+			putVal := "Hello World!"
+			putSalt := "foobar"
+			seq := 0
+			cas := 0
+
+			pvk, _, err := ed25519.PvkFromDir(".", "bep44test")
+			rejectErr(t, err)
+			m, err := PutFromPvk(putVal, putSalt, pvk, seq, cas)
+			rejectErr(t, err)
+
+			alice.MPut(node.GetAddr(), m, func(msg kmsg.Msg) {
+				rejectErrMsg(t, msg)
+				alice.MGet(node.GetAddr(), m.Target, m.Pbk, m.Seq, m.Salt, func(msg kmsg.Msg) {
+					rejectErrMsg(t, msg)
+					wantRetVal(t, msg, putVal)
+					w <- true
+				})
+			})
+			<-w
+			return nil
+		})
+	})
 }

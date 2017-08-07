@@ -32,7 +32,7 @@ func newStoredValue(v string) *StoredValue {
 // ValueStore store values of put requests.
 type ValueStore struct {
 	values map[string]*StoredValue
-}
+} //todo: add a kind of limit on number of keys / or max storage size.
 
 // NewValueStore is a constructor.
 func NewValueStore() *ValueStore {
@@ -52,12 +52,16 @@ func (t *ValueStore) Add(target string, value string) error {
 
 // AddOrTouch a value for given target, or touches it if the key exists.
 // return true if the value is new.
-func (t *ValueStore) AddOrTouch(target string, value string) error {
+func (t *ValueStore) AddOrTouch(target string, value string, seq, cas int, k, sig []byte) error {
 	if _, ok := t.values[target]; ok {
 		t.values[target].Touch()
 	} else {
 		t.values[target] = newStoredValue(value)
 	}
+	t.values[target].K = k
+	t.values[target].Sig = sig
+	t.values[target].Seq = seq
+	t.values[target].Cas = cas
 	return nil
 }
 
@@ -116,10 +120,10 @@ func (t *TSValueStore) Add(target string, value string) error {
 
 // AddOrTouch a value for given target, or touches it if the key exists.
 // return true if the value is new.
-func (t *TSValueStore) AddOrTouch(target string, value string) error {
+func (t *TSValueStore) AddOrTouch(target string, value string, seq, cas int, k, sig []byte) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	return t.store.AddOrTouch(target, value)
+	return t.store.AddOrTouch(target, value, seq, cas, k, sig)
 }
 
 // Get a value for given target.
