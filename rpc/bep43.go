@@ -25,7 +25,7 @@ func (k *KRPC) IsBadNode(addr *net.UDPAddr) bool {
 		if p.IsBanned(addr) ||
 			p.IsTimeout(addr) ||
 			p.IsRO(addr) ||
-			p.LastIDValid(addr) == false {
+			p.LastIDValid(addr) == false { //todo: add option to alloww insecure ids.
 			ret = true
 		}
 	})

@@ -106,7 +106,7 @@ func (s *TxServer) Stop() error {
 	return nil
 }
 
-// loop all transactions, if they timedout,
+// Start loops over all transactions, if they timedout,
 // invoke the response handler with a timeout error of code 201,
 // then deletes the transaction.
 func (s *TxServer) Start() {

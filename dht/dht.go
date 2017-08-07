@@ -94,7 +94,7 @@ type DHT struct {
 	// stores tokens provided by remotes
 	bep44TokenStore *token.TSStore // bep44
 	// stores put request
-	bep44ValueStore *TSValueStore // bep44
+	bep44ValueStore *TSValueStore // bep44 //todo: separate mutable/immutable values to avoid collisions.
 }
 
 // New initiliazes a new DHT.

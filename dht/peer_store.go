@@ -19,7 +19,7 @@ func (p *Peer) String() string {
 // PeerStore provides peers for an announce, or announces for peer.
 type PeerStore struct {
 	peers map[string][]Peer
-}
+} //todo: add a sort of limit.
 
 // NewPeerStore initialize a store of announce->peers
 func NewPeerStore() *PeerStore {

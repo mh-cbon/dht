@@ -80,17 +80,14 @@ var RPCOpts = struct {
 			s.BlockIPs(ips)
 		}
 	},
-}
+} //todo:add options for peers.maxActivityLength, peers.activeDuration
 
 // New Server with given config.
 func New(opts ...RPCOpt) *RPC {
 	ret := &RPC{
-		socket: NewServer(),
-		tx:     NewTxServer(),
-		// id:              c.id,
-		// ipBlockList:     c.ipBlockList,
-		mu: &sync.RWMutex{},
-		// readOnly:        c.readOnly,
+		socket:          NewServer(),
+		tx:              NewTxServer(),
+		mu:              &sync.RWMutex{},
 		peerStatsLogger: stats.NewTSPeersLogger(stats.NewPeersLogger()),
 		logReceiver:     logger.NewMany(),
 	}

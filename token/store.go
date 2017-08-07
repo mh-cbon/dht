@@ -9,7 +9,7 @@ import (
 // Store tokens for a given address
 type Store struct {
 	tokens map[string]string
-}
+} //todos: add a limit on maximum number of tokens.
 
 // NewStore creates a new Store
 func NewStore() *Store {
