@@ -17,6 +17,7 @@ Useful resources
   - [> example/main2.go](#-examplemain2go)
 - [Cli](#cli)
 - [Cli Examples](#cli-examples)
+- [Credits && inspiration](#credits-&&-inspiration)
 
 # Api
 
@@ -163,3 +164,13 @@ go run main.go -listen 127.0.0.1:9091 -bnodes no -remote "127.0.0.1:9090" -do pu
 # get a mutable value on a specific address
 go run main.go -listen 127.0.0.1:9091 -bnodes no -remote "127.0.0.1:9090" -do get -keyname bep44test -target 411eba73b6f087ca51a3795d9c8c938d365e32c1 -salt foobar -seq 1 -vv
 ```
+
+# Credits && inspiration
+
+- https://github.com/anacrolix/dht
+- https://github.com/tristanls/k-bucket
+- https://github.com/mafintosh/k-rpc
+- https://github.com/mafintosh/k-rpc-socket
+- https://github.com/feross/bittorrent-dht
+
+Thanks SO!
