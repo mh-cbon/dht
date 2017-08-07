@@ -272,16 +272,20 @@ func main() {
 					return err
 				}
 				log.Printf("pbk %x\n", pbk)
-				err = public.LookupStores(targetHash, nil)
-				if err != nil {
-					return err
+				if len(targetAddr) == 0 {
+					err = public.LookupStores(targetHash, nil)
+					if err != nil {
+						return err
+					}
 				}
 				val, err := public.MGetAll(targetHash, pbk, seq, putSalt, targetAddr...)
 				log.Println("value", val)
 				return err
 			}
-			if err := public.LookupStores(targetHash, nil); err != nil {
-				return err
+			if len(targetAddr) == 0 {
+				if err := public.LookupStores(targetHash, nil); err != nil {
+					return err
+				}
 			}
 			val, err := public.GetAll(targetHash, targetAddr...)
 			log.Println("value", val)
@@ -301,19 +305,23 @@ func main() {
 				log.Printf("target %v\n", m.Target)
 				log.Printf("sign %x\n", m.Sign)
 				log.Printf("pbk %x\n", m.Pbk)
-				err = public.LookupStores(m.Target, nil)
-				if err != nil {
-					return err
+				if len(targetAddr) == 0 {
+					err = public.LookupStores(m.Target, nil)
+					if err != nil {
+						return err
+					}
 				}
 				return public.MPutAll(m, targetAddr...)
 			}
 			hexTarget := dht.ValueToHex(putVal)
 			log.Println("target", hexTarget)
-			err := public.LookupStores(hexTarget, nil)
-			if err != nil {
-				return err
+			if len(targetAddr) == 0 {
+				err := public.LookupStores(hexTarget, nil)
+				if err != nil {
+					return err
+				}
 			}
-			_, err = public.PutAll(putVal, targetAddr...)
+			_, err := public.PutAll(putVal, targetAddr...)
 			return err
 		}
 		return nil
