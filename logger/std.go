@@ -36,7 +36,7 @@ func (l TextLogger) OnSendQuery(remote *net.UDPAddr, p map[string]interface{}) {
 			ShortStr(a["token"]), a["port"], a["implied_port"] == 0)
 
 	} else if p["q"] == kmsg.QGet {
-		extra = fmt.Sprintf("%10v:%v", "target", ShortByteStr(a["target"]))
+		extra = fmt.Sprintf("%10v:%v seq:%v", "target", ShortByteStr(a["target"]), a["seq"])
 
 	} else if p["q"] == kmsg.QPut {
 		extra = fmt.Sprintf("%10v:%q token:%v", "value", ShortStr(a["v"]), ShortByteStr(a["token"]))
@@ -81,7 +81,7 @@ func (l TextLogger) OnSendResponse(remote *net.UDPAddr, p map[string]interface{}
 	var extra string
 	if p["y"] == "r" {
 		r := p["r"].(kmsg.Return)
-		extra = fmt.Sprintf("id:%v nodes:%3v values:%3v token:%v seq:%2v value:%q",
+		extra = fmt.Sprintf("id:%v nodes:%3v values:%3v token:%v seq:%2v v:%q",
 			ShortByteStr(r.ID), len(r.Nodes), len(r.Values), ShortByteStr(r.Token), r.Seq, ShortStr(r.V))
 		if len(r.K) > 0 {
 			extra += fmt.Sprintf(" k:%v sign:%v", ShortByteStr(r.K), ShortByteStr(r.Sign))
