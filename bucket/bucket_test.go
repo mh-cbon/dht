@@ -483,6 +483,10 @@ func TestRemove(t *testing.T) {
 		})
 		bucket.Add(contact)
 		bucket.Remove(contact.id)
+		<-time.After(time.Millisecond)
+		if !called {
+			panic("not called")
+		}
 	})
 }
 

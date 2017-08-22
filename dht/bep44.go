@@ -36,7 +36,6 @@ func (d *DHT) OnGet(msg kmsg.Msg, remote *net.UDPAddr) error {
 	v := ""
 	var k []byte
 	var sig []byte
-	var seq int
 	d.bep44ValueStore.Transact(func(store *ValueStore) {
 		// If a stored item exists,
 		if s, ok := store.Get(hexTarget); ok {
@@ -46,7 +45,6 @@ func (d *DHT) OnGet(msg kmsg.Msg, remote *net.UDPAddr) error {
 			isExpired := s.HasExpired(2 * time.Hour)
 			if s.Seq >= msg.A.Seq && !isExpired {
 				v = s.Value
-				seq = s.Seq
 				k = s.K
 				sig = s.Sig
 			} else if isExpired {
