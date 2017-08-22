@@ -1,3 +1,4 @@
+// Package crypto is an helper.
 package crypto
 
 import (

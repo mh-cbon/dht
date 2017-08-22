@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-// Peer is a node announcing a torrent
+// Peer is a node announcing a torrent.
 type Peer struct {
 	IP   net.IP
 	Port int
@@ -16,12 +16,12 @@ func (p *Peer) String() string {
 	return net.JoinHostPort(p.IP.String(), strconv.FormatInt(int64(p.Port), 10))
 }
 
-// PeerStore provides peers for an announce, or announces for peer.
+// PeerStore provide peers for an announce, or announces for a peer.
 type PeerStore struct {
 	peers map[string][]Peer
 } //todo: add a sort of limit.
 
-// NewPeerStore initialize a store of announce->peers
+// NewPeerStore initialize a store of announces->peers
 func NewPeerStore() *PeerStore {
 	return &PeerStore{
 		peers: map[string][]Peer{},
@@ -47,7 +47,7 @@ func (s *PeerStore) Get(announceTarget string) []Peer {
 	return []Peer{}
 }
 
-// RemPeerAnnounce with given announceTarget
+// RemPeerAnnounce remove given peer for given announce.
 func (s *PeerStore) RemPeerAnnounce(announceTarget string, p Peer) bool {
 	if peers, ok := s.peers[announceTarget]; ok {
 		index := -1
@@ -66,21 +66,21 @@ func (s *PeerStore) RemPeerAnnounce(announceTarget string, p Peer) bool {
 	return false
 }
 
-// RemPeer with given address
+// RemPeer remove given peer from all announces.
 func (s *PeerStore) RemPeer(p Peer) bool {
-	for a := range s.peers {
-		s.RemPeerAnnounce(a, p)
+	for announce := range s.peers {
+		s.RemPeerAnnounce(announce, p)
 	}
 	return false
 }
 
-//RemAnnounce and all its peers.
+//RemAnnounce deletes an announce and its peers.
 func (s *PeerStore) RemAnnounce(announceTarget string) bool {
 	delete(s.peers, announceTarget)
 	return true
 }
 
-//Clear the storage.
+//Clear reset the storage.
 func (s *PeerStore) Clear() {
 	s.peers = map[string][]Peer{}
 }

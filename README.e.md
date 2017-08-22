@@ -9,7 +9,7 @@ LicenseColor: yellow
 
 {{pkgdoc}}
 
-It provides support for bep05 / bep42 / bep43 / bep44
+It implements `bep05` / `bep42` / `bep43` / `bep44`
 
 Useful resources
 - http://engineering.bittorrent.com/2013/01/22/bittorrent-tech-talks-dht/
@@ -24,7 +24,7 @@ Useful resources
 
 # Cli
 
-the main.go file helps to play with the table.
+The provided `main.go` program helps to play with the bittorrent/dht table.
 
 ```sh
   -annimplied

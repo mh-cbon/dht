@@ -1,3 +1,4 @@
+// Package socket is a transactionnal client/server on top of net.PacketConn.
 package socket
 
 import (

@@ -1,3 +1,4 @@
+// Package rpc is a transactionnal/udp client for a dht/bittorent protocol.
 package rpc
 
 import (

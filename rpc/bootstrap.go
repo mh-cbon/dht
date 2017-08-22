@@ -25,7 +25,7 @@ type ipRecommendation struct {
 }
 
 // Boostrap your participation to the network.
-// It returns a table results of the bootstrap.
+// It returns the table built from the bootstrap.
 // bep42: If a recommanded ip is returned, you should consider saving that ip as your public ip,
 // derive a new id, and restart the bootstrap.
 // if an error is returned, the table should not be considere as correctly built.
@@ -83,7 +83,6 @@ func (k *KRPC) Boostrap(target []byte, publicIP *util.CompactPeer, addrs []strin
 	var ncontacts []bucket.ContactIdentifier
 	var gotErr []error
 	for i := 0; i < len(bnContacts); i += 8 {
-		// u := k.config.concurrency
 		u := k.concurrency
 		if u > i+len(bnContacts) {
 			u = len(bnContacts)
@@ -167,6 +166,7 @@ func (k *KRPC) Boostrap(target []byte, publicIP *util.CompactPeer, addrs []strin
 	return recommendedIP, err
 }
 
+// notQueried filters out contacts existing in the given queriedNodes slice.
 func (k *KRPC) notQueried(queriedNodes *boom.BloomFilter, contacts []bucket.ContactIdentifier) []bucket.ContactIdentifier {
 	if contacts == nil {
 		return []bucket.ContactIdentifier{}
@@ -182,6 +182,7 @@ func (k *KRPC) notQueried(queriedNodes *boom.BloomFilter, contacts []bucket.Cont
 	return ret
 }
 
+// goodNodes filters out bad nodes.
 func (k *KRPC) goodNodes(nodes []kmsg.NodeInfo) (ret []bucket.ContactIdentifier) {
 	if nodes == nil {
 		return ret
@@ -199,8 +200,8 @@ func (k *KRPC) goodNodes(nodes []kmsg.NodeInfo) (ret []bucket.ContactIdentifier)
 	return ret
 }
 
-// handleTablePing handles the ping event emitted on the table,
-// it is very standard thing about removing useless nodes, adding new ones if positions are available.
+// handleTablePing handles the ping event emitted on the table.
+// the ping event occurs when a bucket is full and free places must be done to *maybe* insert a new contact.
 func (k *KRPC) handleTablePing(table *bucket.TSBucket) bucket.PingFunc {
 	return func(oldContacts []bucket.ContactIdentifier, newishContact bucket.ContactIdentifier) {
 		todoContacts := []bucket.ContactIdentifier{}
@@ -227,7 +228,7 @@ func (k *KRPC) handleTablePing(table *bucket.TSBucket) bucket.PingFunc {
 	}
 }
 
-// BootstrapExport the nodes in the bootstrap table.
+// BootstrapExport the addresses in the bootstrap table.
 func (k *KRPC) BootstrapExport() (ret []string) {
 	for _, c := range k.bootstrap.ToArray() {
 		ret = append(ret, c.GetAddr().String())

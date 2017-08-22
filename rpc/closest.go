@@ -6,7 +6,7 @@ import (
 	"github.com/mh-cbon/dht/bucket"
 )
 
-//MakeTable is an helper to create a configured table.
+//MakeTable is an helper to create a configured table and registres its ping handler.
 func (k *KRPC) MakeTable(target []byte) *bucket.TSBucket {
 	bucketTable := bucket.NewTS(target)
 	bucketTable.Configure(k.k, k.concurrency)
@@ -14,7 +14,7 @@ func (k *KRPC) MakeTable(target []byte) *bucket.TSBucket {
 	return bucketTable
 }
 
-// ClosestLocation for given target.
+// ClosestLocation returns the closest peers available in the bootstrap table. You must bootstrap before calling this func.
 func (k *KRPC) ClosestLocation(target []byte, n uint) ([]bucket.ContactIdentifier, error) {
 	if k.bootstrap == nil {
 		return nil, fmt.Errorf("table not found for %x, run a lookup first", string(target))
@@ -22,7 +22,7 @@ func (k *KRPC) ClosestLocation(target []byte, n uint) ([]bucket.ContactIdentifie
 	return k.bootstrap.Closest(target, n), nil
 }
 
-// ClosestStores find closest stores for given target via get messages.
+// getTableForPeers creates or returns the table for given target.
 func (k *KRPC) getTableForPeers(target []byte) (table *bucket.TSBucket, err error) {
 	var found bool
 	x, found := k.lookupTableForPeers.Get(target)
@@ -34,6 +34,7 @@ func (k *KRPC) getTableForPeers(target []byte) (table *bucket.TSBucket, err erro
 	return table, nil
 }
 
+// ClosestPeers returns the closest peers available for given target. You must perform a lookup of given target before.
 // ClosestPeers for given target.
 func (k *KRPC) ClosestPeers(target []byte, n uint) ([]bucket.ContactIdentifier, error) {
 	table, found := k.lookupTableForPeers.Get(target)
@@ -43,7 +44,7 @@ func (k *KRPC) ClosestPeers(target []byte, n uint) ([]bucket.ContactIdentifier, 
 	return table.Closest(target, n), nil
 }
 
-// ClosestStores find closest stores for given target via get messages.
+// getTableForStore creates or returns the table for given target.
 func (k *KRPC) getTableForStore(target []byte) (table *bucket.TSBucket, err error) {
 	var found bool
 	x, found := k.lookupTableForStores.Get(target)
@@ -55,7 +56,7 @@ func (k *KRPC) getTableForStore(target []byte) (table *bucket.TSBucket, err erro
 	return table, nil
 }
 
-// ClosestStores for given target.
+// ClosestStores returns the closest peers available for given target. You must perform a lookup of given target before.
 func (k *KRPC) ClosestStores(target []byte, n uint) ([]bucket.ContactIdentifier, error) {
 	table, found := k.lookupTableForStores.Get(target)
 	if found == false {
@@ -64,7 +65,7 @@ func (k *KRPC) ClosestStores(target []byte, n uint) ([]bucket.ContactIdentifier,
 	return table.Closest(target, n), nil
 }
 
-// ReleaseTableByID releases resources associated with this lookup id.
+// ReleaseTableByID releases resources associated with given lookup id.
 func (k *KRPC) ReleaseTableByID(target []byte) error {
 	if table, found := k.lookupTableForStores.Get(target); found {
 		table.Clear()

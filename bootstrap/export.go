@@ -8,13 +8,13 @@ import (
 	"github.com/anacrolix/torrent/util"
 )
 
-// DataSave is the type of th stored values.
+// DataSave is a type to store known ip and contacts of an existing dht session.
 type DataSave struct {
 	OldIP *util.CompactPeer
 	Nodes []string
 }
 
-// Get an existing bootstrap table.
+// Get loads session artifacts from a file.
 func Get(file string) (*DataSave, error) {
 	if _, err := os.Stat(file); os.IsNotExist(err) {
 		wd, _ := os.Getwd()
@@ -33,7 +33,7 @@ func Get(file string) (*DataSave, error) {
 	return ret, decoder.Decode(&ret.Nodes)
 }
 
-// Save a bootstrap table to given file.
+// Save a bootstrap artifacts to a file.
 func Save(file string, currentIP *util.CompactPeer, nodes []string) error {
 	f, err := os.OpenFile(file, os.O_RDWR|os.O_TRUNC|os.O_CREATE, 0755)
 	if err != nil {

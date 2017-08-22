@@ -1,4 +1,5 @@
-package bootstrap // provides public common utilities to work with bootstrap addresses
+//Package bootstrap provides public common utilities to work with bootstrap addresses
+package bootstrap
 
 import (
 	"fmt"
@@ -7,18 +8,18 @@ import (
 	"github.com/mh-cbon/dht/bucket"
 )
 
-// Public gives you a list of public bootstrap nodes.
+// Public lists public addresses to bootstrap.
 var Public = []string{
 	"router.utorrent.com:6881",
 	"router.bittorrent.com:6881",
 }
 
-//Node creates a new bootstrap contact.
+//Node creates a bootstrap contact, a contact with an adress but no ID.
 func Node(addr *net.UDPAddr) bucket.ContactIdentifier {
 	return bucket.NewContact("", *addr)
 }
 
-// Contacts returns contacts for strings.
+// Contacts returns contacts for string of network adresses.
 func Contacts(nodeAddrs []string) (addrs []bucket.ContactIdentifier, err error) {
 	b, err := Addrs(nodeAddrs)
 	if err != nil {
@@ -30,7 +31,7 @@ func Contacts(nodeAddrs []string) (addrs []bucket.ContactIdentifier, err error) 
 	return addrs, nil
 }
 
-// Addrs returns adresses for strings.
+// Addrs returns net.UDPAddr slice of given network address strings.
 func Addrs(nodeAddrs []string) (addrs []*net.UDPAddr, err error) {
 	if len(nodeAddrs) == 0 {
 		return nil, fmt.Errorf("nothing to resolve")

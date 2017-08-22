@@ -6,7 +6,7 @@ import (
 	"github.com/mh-cbon/dht/bucket"
 )
 
-// ClosestLocation finds closest peers for given target in the bootstrap table.
+// ClosestLocation uses the bootstrap table to find the closests nodes of given target.
 func (d *DHT) ClosestLocation(hexTarget string, n uint) (closests []bucket.ContactIdentifier, err error) {
 	target, e := hex.DecodeString(hexTarget)
 	if e != nil {
@@ -15,20 +15,22 @@ func (d *DHT) ClosestLocation(hexTarget string, n uint) (closests []bucket.Conta
 	return d.rpc.ClosestLocation(target, n)
 }
 
-// ClosestPeers finds closest peers for given target in a peers lookup table.
+// ClosestPeers creates or re uses a lookup table finds closest peers using get_peers query. It fails if the hexTarget was not lookup before.
 func (d *DHT) ClosestPeers(hexTarget string, n uint) (closests []bucket.ContactIdentifier, err error) {
 	target, e := hex.DecodeString(hexTarget)
 	if e != nil {
 		return nil, e
 	}
+	// todo: automatically lookup if never done.
 	return d.rpc.ClosestPeers(target, n)
 }
 
-// ClosestStores find closest stores for given target in a store lookup table.
+// ClosestStores creates or re uses a lookup table finds closest peers using get query. It fails if the hexTarget was not lookup before.
 func (d *DHT) ClosestStores(hexTarget string, n uint) (closest []bucket.ContactIdentifier, err error) {
 	target, e := hex.DecodeString(hexTarget)
 	if e != nil {
 		return nil, e
 	}
+	// todo: automatically lookup if never done.
 	return d.rpc.ClosestStores(target, n)
 }

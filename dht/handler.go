@@ -29,8 +29,8 @@ func StdQueryHandler(d *DHT) socket.QueryHandler {
 
 		} else if q == kmsg.QPut {
 			return d.OnPut(msg, remote)
-
 		}
+
 		return d.Error(remote, msg.T, kmsg.ErrorMethodUnknown)
 	}
 }

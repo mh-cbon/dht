@@ -1,3 +1,4 @@
+// Package security is an helper to implement bep042
 package security
 
 import (

@@ -7,7 +7,7 @@ import (
 	"github.com/mh-cbon/dht/kmsg"
 )
 
-// Concurrent constraint the number of outgoing queries.
+// Concurrent is an rpc query/writer with concurrency support.
 type Concurrent struct {
 	*RPC
 	qStart chan func(chan struct{})
@@ -28,7 +28,7 @@ func NewConcurrent(limit int, opts ...RPCOpt) *Concurrent {
 
 // Listen reads kmsg.Msg
 func (k *Concurrent) Listen(h QueryHandler) error {
-	go k.Start()
+	go k.Start() //todo: should start only if listen did not err ?
 	return k.RPC.Listen(h)
 }
 

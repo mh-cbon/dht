@@ -10,22 +10,24 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-// Get sends an immutable "get" query.
+// Get send an immutable "get" query.
 func (k *KRPC) Get(addr *net.UDPAddr, target []byte, onResponse func(kmsg.Msg)) (*socket.Tx, error) {
 	a := map[string]interface{}{"target": target}
 	// bep42: guards against bad node id
 	return k.Query(addr, kmsg.QGet, a, SecuredResponseOnly(addr, onResponse))
 }
 
-//CheckGetResponse for given seq and salt.
+// todo: move CheckPutQuery / CheckGetResponse to dht package.
+
+//CheckGetResponse ensure a mutable "get" response is valid.
 func CheckGetResponse(msg kmsg.Msg, pbK []byte, seq int, salt string) *kmsg.Error {
 	if msg.R.Seq < seq {
 		return &kmsg.ErrorSeqLessThanCurrent
 	}
-	return CheckSign(pbK, msg.R.Sign, msg.R.V, msg.R.Seq, salt)
+	return checkSign(pbK, msg.R.Sign, msg.R.V, msg.R.Seq, salt)
 }
 
-//CheckPutQuery for given seq and salt.
+//CheckPutQuery ensure a mutable "put" query (from the network) is valid.
 func CheckPutQuery(msg kmsg.Msg) *kmsg.Error {
 	if len(msg.A.V) == 0 {
 		return &kmsg.ErrorVTooShort
@@ -37,13 +39,13 @@ func CheckPutQuery(msg kmsg.Msg) *kmsg.Error {
 		if len(msg.A.Salt) > 64 {
 			return &kmsg.ErrorSaltTooLong
 		}
-		return CheckSign(msg.A.K, msg.A.Sign, msg.A.V, msg.A.Seq, msg.A.Salt)
+		return checkSign(msg.A.K, msg.A.Sign, msg.A.V, msg.A.Seq, msg.A.Salt)
 	}
 	return nil
 }
 
-//CheckSign value/sig/pbk ect.
-func CheckSign(pbK, sig []byte, v string, seq int, salt string) *kmsg.Error {
+//checkSign ensure given sign is valid for given pbk/salt/data/seq.
+func checkSign(pbK, sig []byte, v string, seq int, salt string) *kmsg.Error {
 	if len(pbK) == 0 {
 		return &kmsg.ErrorNoK
 	}
@@ -85,14 +87,14 @@ func EncodePutValue(val, salt string, seq int) (string, error) {
 	return ret, nil
 }
 
-// MGet sends an mutable "get" query.
+// MGet send a mutable "get" query.
 func (k *KRPC) MGet(addr *net.UDPAddr, target []byte, seq int, onResponse func(kmsg.Msg)) (*socket.Tx, error) {
 	a := map[string]interface{}{"target": target, "seq": seq}
 	// bep42: guards against bad node id
 	return k.Query(addr, kmsg.QGet, a, SecuredResponseOnly(addr, onResponse))
 }
 
-// Put sends an immutable "put" query.
+// Put send an immutable "put" query.
 func (k *KRPC) Put(addr *net.UDPAddr, value, writeToken string, onResponse func(kmsg.Msg)) (*socket.Tx, error) {
 	a := map[string]interface{}{
 		"token": writeToken,
@@ -101,7 +103,7 @@ func (k *KRPC) Put(addr *net.UDPAddr, value, writeToken string, onResponse func(
 	return k.Query(addr, kmsg.QPut, a, onResponse)
 }
 
-// MPut sends an mutable "put" query.
+// MPut send a mutable "put" query.
 func (k *KRPC) MPut(addr *net.UDPAddr, value string, pbk []byte, sig []byte, seq int, cas int, salt string, writeToken string, onResponse func(kmsg.Msg)) (*socket.Tx, error) {
 	a := map[string]interface{}{
 		"token": writeToken,

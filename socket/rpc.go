@@ -3,7 +3,6 @@ package socket
 import (
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"sync"
 	"time"
@@ -21,14 +20,14 @@ type KrpcPacketEncoder interface {
 	Write(m map[string]interface{}, addr *net.UDPAddr) error
 }
 
-//ToTx ...
+//ToTx applies TxOpt to an RPC
 func ToTx(in TxOpt) RPCOpt {
 	return func(s RPCConfigurer) {
 		in(s.GetTxServer())
 	}
 }
 
-//ToServer ...
+//ToServer applies ServerOpt to an RPC
 func ToServer(in ServerOpt) RPCOpt {
 	return func(s RPCConfigurer) {
 		in(s.GetSocketServer())
@@ -82,7 +81,7 @@ var RPCOpts = struct {
 	},
 } //todo:add options for peers.maxActivityLength, peers.activeDuration
 
-// New Server with given config.
+// New initializes an RPC.
 func New(opts ...RPCOpt) *RPC {
 	ret := &RPC{
 		socket:          NewServer(),
@@ -205,19 +204,15 @@ func (s *RPC) Listen(h QueryHandler) error {
 		if isQ {
 			return queryHandler(m, addr)
 		}
-		tx, err := s.tx.HandleResponse(m, addr)
+		_, err := s.tx.HandleResponse(m, addr)
 		if err != nil {
-			log.Println(tx)
+			//todo: finish handling of failed transactions (usually slow nodes)
+			// log.Println(tx)
 			s.logReceiver.OnTxNotFound(addr, m)
 		}
 		return err
 	}
 	return s.encoder.Listen(queryOrResponseHandler)
-}
-
-// Listen reads kmsg.Msg
-func (s *RPC) Write(m map[string]interface{}, node *net.UDPAddr) error {
-	return s.encoder.Write(m, node)
 }
 
 // MustListen panics if the server fails to listen.
@@ -226,6 +221,11 @@ func (s *RPC) MustListen(h QueryHandler) *RPC {
 		panic(err)
 	}
 	return s
+}
+
+// Listen reads kmsg.Msg
+func (s *RPC) Write(m map[string]interface{}, node *net.UDPAddr) error {
+	return s.encoder.Write(m, node)
 }
 
 // Query given addr with given query and message arguments.
@@ -301,7 +301,7 @@ func (s *RPC) Error(addr *net.UDPAddr, txID string, e kmsg.Error) error {
 	return s.Write(p, addr)
 }
 
-// Close is TBD.
+// Close clears the loggers, tranaction server and underlying socket.
 func (s *RPC) Close() error {
 	// s.peerStatsLogger.Clear()
 	s.logReceiver.Clear()

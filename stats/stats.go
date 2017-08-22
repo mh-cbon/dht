@@ -1,3 +1,4 @@
+// Package stats is a logger that maintains information about nodes and their quality given observed traffic.
 package stats
 
 import (
@@ -7,7 +8,7 @@ import (
 	"github.com/mh-cbon/dht/kmsg"
 )
 
-// PeerTimeout is the callback signature when a nodes enters timeout.
+// PeerTimeout is the signature of the callback invoked when a nodes enters timeout.
 type PeerTimeout func(remote *net.UDPAddr, queriedQ string, queriedA map[string]interface{}, response kmsg.Msg)
 
 // NewPeersLogger with default options (maxActivityLength:10, activeDuration:30s)
@@ -20,7 +21,7 @@ func NewPeersLogger() *Peers {
 	}
 }
 
-// Peers gather and maintain stats about peers.
+// Peers is a logger to maintain peers quality information.
 type Peers struct {
 	maxActivityLength int
 	activeDuration    time.Duration
@@ -29,7 +30,7 @@ type Peers struct {
 	onPeerTimeout     map[string]PeerTimeout
 }
 
-// IsTimeout return true if remote has timedout, false if never queried.
+// IsTimeout return true if remote has timedout (at least three times in a row), false if never queried.
 func (s *Peers) IsTimeout(remote *net.UDPAddr) bool {
 	addr := remote.String()
 	if x, ok := s.stats[addr]; ok {
@@ -38,7 +39,7 @@ func (s *Peers) IsTimeout(remote *net.UDPAddr) bool {
 	return false
 }
 
-// IsActive return true if remote has good query since duration, false if never queried.
+// IsActive return true if remote has good query within duration, false if never queried.
 func (s *Peers) IsActive(remote *net.UDPAddr) bool {
 	addr := remote.String()
 	if x, ok := s.stats[addr]; ok {
@@ -47,7 +48,7 @@ func (s *Peers) IsActive(remote *net.UDPAddr) bool {
 	return false
 }
 
-// LastIDValid return false if remote last query/response was invalid id, true if never queried.
+// LastIDValid return false if the last query/response of remote contained an invalid id, true if never queried.
 func (s *Peers) LastIDValid(remote *net.UDPAddr) bool {
 	addr := remote.String()
 	if x, ok := s.stats[addr]; ok {
@@ -56,7 +57,7 @@ func (s *Peers) LastIDValid(remote *net.UDPAddr) bool {
 	return true
 }
 
-// IsRO return true if remote has sent query with ro flag, false if never queried.
+// IsRO return true if the remote has sent a query with an ro flag, false if never queried.
 func (s *Peers) IsRO(remote *net.UDPAddr) bool {
 	addr := remote.String()
 	if x, ok := s.stats[addr]; ok {
@@ -70,7 +71,7 @@ func (s *Peers) BanNode(addr *net.UDPAddr) {
 	s.banNodes = append(s.banNodes, addr.String())
 }
 
-// Unban node previously banned node.
+// Unban previously banned node.
 func (s *Peers) Unban(addr *net.UDPAddr) {
 	bans := []string{}
 	a := addr.String()

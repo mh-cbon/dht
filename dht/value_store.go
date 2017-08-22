@@ -1,11 +1,12 @@
 package dht
 
 import (
+	"fmt"
 	"sync"
 	"time"
 )
 
-// StoredValue is a value stored following a put requests.
+// StoredValue is a value stored following a put request.
 type StoredValue struct {
 	Value        string
 	Seq          int
@@ -20,7 +21,7 @@ func (s StoredValue) HasExpired(d time.Duration) bool {
 	return time.Now().After(s.CreationDate.Add(d))
 }
 
-// Touch updates a value.
+// Touch pushes back the expiration by updating its CreationDate.
 func (s StoredValue) Touch() {
 	s.CreationDate = time.Now()
 }
@@ -41,22 +42,19 @@ func NewValueStore() *ValueStore {
 	}
 }
 
-// Add a value for given target.
-// return true if the value is new.
+// Add a value for given target, it returns an error if the value already exist.
 func (t *ValueStore) Add(target string, value string) error {
 	if _, ok := t.values[target]; !ok {
 		t.values[target] = newStoredValue(value)
+		return nil
 	}
-	return nil
+	return fmt.Errorf("value already exists for id %x", target)
 }
 
-// AddOrTouch a value for given target, or touches it if the key exists.
-// return true if the value is new.
+// AddOrTouch adds a value if it is new, when the key exists, it touches it. In all cases it updates seq/cas/k/sig.
 func (t *ValueStore) AddOrTouch(target string, value string, seq, cas int, k, sig []byte) error {
-	if _, ok := t.values[target]; ok {
+	if t.Add(target, value) != nil {
 		t.values[target].Touch()
-	} else {
-		t.values[target] = newStoredValue(value)
 	}
 	t.values[target].K = k
 	t.values[target].Sig = sig
@@ -65,7 +63,7 @@ func (t *ValueStore) AddOrTouch(target string, value string, seq, cas int, k, si
 	return nil
 }
 
-// Get a value for given target.
+// Get return the value stored for given target.
 func (t *ValueStore) Get(target string) (*StoredValue, bool) {
 	if x, ok := t.values[target]; ok {
 		return x, ok
@@ -73,10 +71,9 @@ func (t *ValueStore) Get(target string) (*StoredValue, bool) {
 	return nil, false
 }
 
-// Contains a value with given target.
+// Contains return true when the target exists.
 func (t *ValueStore) Contains(target string) bool {
-	starget := string(target)
-	if _, ok := t.values[starget]; ok {
+	if _, ok := t.values[target]; ok {
 		return ok
 	}
 	return false
@@ -110,30 +107,28 @@ func NewTSValueStore() *TSValueStore {
 	}
 }
 
-// Add a value for given target.
-// return true if the value is new.
+// Add a value for given target, it returns an error if the value already exist.
 func (t *TSValueStore) Add(target string, value string) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return t.store.Add(target, value)
 }
 
-// AddOrTouch a value for given target, or touches it if the key exists.
-// return true if the value is new.
+// AddOrTouch adds a value if it is new, when the key exists, it touches it. In all cases it updates seq/cas/k/sig.
 func (t *TSValueStore) AddOrTouch(target string, value string, seq, cas int, k, sig []byte) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return t.store.AddOrTouch(target, value, seq, cas, k, sig)
 }
 
-// Get a value for given target.
+// Get return the value stored for given target.
 func (t *TSValueStore) Get(target string) (*StoredValue, bool) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return t.store.Get(target)
 }
 
-// Contains a value with given target.
+// Contains return true when the target exists.
 func (t *TSValueStore) Contains(target string) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()

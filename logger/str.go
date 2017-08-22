@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// ShortByteStr turns a byte string into hew, then shorten it
+// ShortByteStr turns a byte string into hex, then shortens it.
 func ShortByteStr(f interface{}) string {
 	var s string
 	if f == nil {
@@ -18,7 +18,7 @@ func ShortByteStr(f interface{}) string {
 	return ShortStr(s)
 }
 
-// ShortStr shorten a string to display head...tail.
+// ShortStr shorten a string to display: head...tail.
 func ShortStr(f interface{}) string {
 	var s string
 	if f == nil {

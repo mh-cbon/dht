@@ -1,3 +1,4 @@
+// Package kmsg provides the data structures required to implement the dht/bittorrent protocol.
 package kmsg
 
 import (

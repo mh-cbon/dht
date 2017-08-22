@@ -16,22 +16,22 @@ type LogReceiver interface {
 	Clear()
 }
 
-// Many loggers..
+// Many dispatch to many loggers.
 type Many struct {
 	loggers []LogReceiver
 }
 
-// NewMany loggers..
+// NewMany initalizes a many loggers dispatcher.
 func NewMany() *Many {
 	return &Many{}
 }
 
-// Add LogReceiver..
+// Add given LogReceiver.
 func (m *Many) Add(l LogReceiver) {
 	m.loggers = append(m.loggers, l)
 }
 
-// Rm LogReceiver..
+// Rm given LogReceiver
 func (m *Many) Rm(l LogReceiver) bool {
 	var found bool
 	loggers := []LogReceiver{}
@@ -45,42 +45,42 @@ func (m *Many) Rm(l LogReceiver) bool {
 	return found
 }
 
-// Clear loggers..
+// Clear loggers.
 func (m *Many) Clear() {
 	for _, l := range m.loggers {
 		l.Clear()
 	}
 }
 
-// OnSendQuery implements LogReceiver..
+// OnSendQuery implements LogReceiver.
 func (m *Many) OnSendQuery(remote *net.UDPAddr, p map[string]interface{}) {
 	for _, l := range m.loggers {
 		l.OnSendQuery(remote, p)
 	}
 }
 
-// OnRcvQuery implements LogReceiver..
+// OnRcvQuery implements LogReceiver.
 func (m *Many) OnRcvQuery(remote *net.UDPAddr, p kmsg.Msg) {
 	for _, l := range m.loggers {
 		l.OnRcvQuery(remote, p)
 	}
 }
 
-// OnSendResponse implements LogReceiver..
+// OnSendResponse implements LogReceiver.
 func (m *Many) OnSendResponse(remote *net.UDPAddr, p map[string]interface{}) {
 	for _, l := range m.loggers {
 		l.OnSendResponse(remote, p)
 	}
 }
 
-// OnRcvResponse implements LogReceiver..
+// OnRcvResponse implements LogReceiver.
 func (m *Many) OnRcvResponse(remote *net.UDPAddr, queriedQ string, queriedA map[string]interface{}, p kmsg.Msg) {
 	for _, l := range m.loggers {
 		l.OnRcvResponse(remote, queriedQ, queriedA, p)
 	}
 }
 
-// OnTxNotFound implements LogReceiver..
+// OnTxNotFound implements LogReceiver.
 func (m *Many) OnTxNotFound(remote *net.UDPAddr, p kmsg.Msg) {
 	for _, l := range m.loggers {
 		l.OnTxNotFound(remote, p)

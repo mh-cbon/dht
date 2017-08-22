@@ -12,10 +12,10 @@ import (
 	boom "github.com/tylertreat/BoomFilters"
 )
 
-// SeedFunc is the signature func to seed a table
+// SeedFunc seed a table
 type SeedFunc func(bucket.ContactIdentifier, func(kmsg.Msg)) (*socket.Tx, error)
 
-//MakeTable is an helper to create a configured table.
+// seedTable takes 8th closest good nodes from given bootstrap table and add them to given table.
 func (k *KRPC) seedTable(target []byte, boostrapTable *bucket.TSBucket, table *bucket.TSBucket, seedF SeedFunc) error {
 	startupContacts := boostrapTable.Closest(target, 8)
 	if len(startupContacts) == 0 {
@@ -37,7 +37,7 @@ func (k *KRPC) seedTable(target []byte, boostrapTable *bucket.TSBucket, table *b
 	return nil
 }
 
-// LookupPeers for given target.
+// LookupPeers perform a lookup for given target using "get_peers" verb.
 func (k *KRPC) LookupPeers(target []byte, boostrapTable *bucket.TSBucket) error {
 
 	table, tableErr := k.getTableForPeers(target)
@@ -84,7 +84,7 @@ func (k *KRPC) LookupPeers(target []byte, boostrapTable *bucket.TSBucket) error 
 	return nil
 }
 
-// LookupStores for given target.
+// LookupStores perform a lookup for given target using "get" verb.
 func (k *KRPC) LookupStores(target []byte, boostrapTable *bucket.TSBucket) error {
 
 	table, tableErr := k.getTableForStore(target)
@@ -132,7 +132,7 @@ func (k *KRPC) LookupStores(target []byte, boostrapTable *bucket.TSBucket) error
 	return nil
 }
 
-//testPut checks given addr implemens get/put.
+//testGetPut checks given addr implemens get/put.
 func (k *KRPC) testGetPut(addr *net.UDPAddr, onResponse func(kmsg.Msg)) error {
 	v1 := "check"
 	h1 := crypto.HashSha1(v1)

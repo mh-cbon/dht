@@ -13,7 +13,7 @@ import (
 //TxOpt is a option setter
 type TxOpt func(*TxServer)
 
-// TxOpts are tx server options.
+// TxOpts are TxServer options.
 var TxOpts = struct {
 	WithTimeout func(duraton time.Duration) TxOpt
 }{
@@ -250,16 +250,16 @@ func (t *Tx) onHandled(handled func()) {
 	}
 }
 
-var buffers = sync.Pool{
-	New: func() interface{} {
-		return newTx()
-	},
-}
-
-func getTx() *Tx {
-	return buffers.Get().(*Tx)
-}
-
-func putTx(tx *Tx) {
-	buffers.Put(tx)
-}
+// var buffers = sync.Pool{
+// 	New: func() interface{} {
+// 		return newTx()
+// 	},
+// }
+//
+// func getTx() *Tx {
+// 	return buffers.Get().(*Tx)
+// }
+//
+// func putTx(tx *Tx) {
+// 	buffers.Put(tx)
+// }

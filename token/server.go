@@ -1,3 +1,4 @@
+// Package token provides both store and server of tokens.
 package token
 
 import (

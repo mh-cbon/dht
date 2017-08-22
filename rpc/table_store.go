@@ -11,7 +11,7 @@ import (
 type TableStore struct {
 	// lookupTables    *lru.Cache
 	tables map[string]*bucket.TSBucket
-}
+} //todo: probably add some sort of limit.
 
 // NewStore is a constructor.
 func NewStore() *TableStore {

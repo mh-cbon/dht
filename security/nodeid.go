@@ -7,7 +7,7 @@ import (
 	"github.com/anacrolix/missinggo"
 )
 
-// GenerateSecureNodeID generates an secure node id for given details.
+// GenerateSecureNodeID generates a secure node id for given details.
 // hostname or empty.
 // localAddr of the socket.
 // publicIP or nil.

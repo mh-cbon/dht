@@ -21,7 +21,7 @@ import (
 // a key "nodes" is returned containing the K nodes in the queried nodes routing table closest to the infohash supplied in the query.
 // In either case a "token" key is also included in the return value.
 // The token value is a required argument for a future put query.
-// The token value should be a short binary string.
+// The token value is a short binary string.
 func (d *DHT) OnGet(msg kmsg.Msg, remote *net.UDPAddr) error {
 	if msg.A == nil {
 		return fmt.Errorf("bad message no A: %v", msg)
@@ -89,7 +89,7 @@ func (d *DHT) Get(addr *net.UDPAddr, hexTarget string, onResponse func(kmsg.Msg)
 	})
 }
 
-// GetAll issues a get request to the closest nodes for given target.
+// GetAll issues a get request to the closest nodes for given target, or the list of given adresses.
 // It saves response write tokens for future put queries.
 func (d *DHT) GetAll(hexTarget string, addrs ...*net.UDPAddr) (string, error) {
 	target, e := HexToBytes(hexTarget)
@@ -133,7 +133,7 @@ func (d *DHT) GetAll(hexTarget string, addrs ...*net.UDPAddr) (string, error) {
 	return ret, nil
 }
 
-// MGet issues a mutable get request to addr for given target.
+// MGet issues a mutable get request to given address.
 // It saves response write tokens for future put queries.
 func (d *DHT) MGet(addr *net.UDPAddr, hexTarget string, pbk []byte, seq int, salt string, onResponse func(kmsg.Msg)) (*socket.Tx, error) {
 	target, e := HexToBytes(hexTarget)
@@ -159,7 +159,7 @@ func (d *DHT) MGet(addr *net.UDPAddr, hexTarget string, pbk []byte, seq int, sal
 	})
 }
 
-// MGetAll issues a mutable get request to the closest nodes for given target.
+// MGetAll issues a mutable get request to the closest nodes for given target, or the list of given adresses.
 // It saves response write tokens for future put queries.
 func (d *DHT) MGetAll(hexTarget string, pbk []byte, seq int, salt string, addrs ...*net.UDPAddr) (string, error) {
 	target, e := HexToBytes(hexTarget)
@@ -255,7 +255,7 @@ func (d *DHT) OnPut(msg kmsg.Msg, remote *net.UDPAddr) error {
 	return retErr
 }
 
-// Put issues a put request to given addr for given target.
+// Put issues a put request to given address.
 func (d *DHT) Put(addr *net.UDPAddr, value string, onResponse func(kmsg.Msg)) (*socket.Tx, error) {
 	// Immutable items are stored under their SHA-1 hash,
 	// and since they cannot be modified,
@@ -277,11 +277,12 @@ func (d *DHT) Put(addr *net.UDPAddr, value string, onResponse func(kmsg.Msg)) (*
 	return d.rpc.Put(addr, value, writeToken, onResponse)
 }
 
-// PutAll issues a put request to the closest nodes for given target.
+// PutAll issues a put request to the closest nodes for given value, or the list of given adresses.
 func (d *DHT) PutAll(value string, addrs ...*net.UDPAddr) (string, error) {
 	// Immutable items are stored under their SHA-1 hash,
 	// and since they cannot be modified,
-	// there is no need to authenticate the origin of them. This makes immutable items simple.
+	// there is no need to authenticate the origin of them.
+	// This makes immutable items simple.
 	hexTarget := ValueToHex(value)
 
 	onResponse := func(addr *net.UDPAddr, done chan<- error) (*socket.Tx, error) {
@@ -320,7 +321,7 @@ func ValueToHexAndByteString(value string) (string, []byte, error) {
 	return h, x, nil
 }
 
-// ValueToHex turns a value to its hex.
+// ValueToHex turns a value to its bencoded hex: sha1("len(value):value").
 func ValueToHex(value string) string {
 	return crypto.HashSha1(fmt.Sprintf("%v:%v", len(value), value))
 }
@@ -335,7 +336,7 @@ func HexFromBytes(b []byte) string {
 	return hex.EncodeToString(b)
 }
 
-// MutablePut holds mutable put message data.
+// MutablePut contains the data required to emit a mutable put message.
 type MutablePut struct {
 	Val    string
 	Salt   string
@@ -370,7 +371,7 @@ func PutFromPvk(val string, salt string, pvk ed25519.PrivateKey, seq, cas int) (
 	return PutFromPbk(val, salt, pbk, sign, seq, cas)
 }
 
-// MPut issues a mutable put request to addr for given target.
+// MPut issues a mutable put request to addr for given value.
 func (d *DHT) MPut(addr *net.UDPAddr, value *MutablePut, onResponse func(kmsg.Msg)) (*socket.Tx, error) {
 	doPut := func(writeToken string) (*socket.Tx, error) {
 		return d.rpc.MPut(addr, value.Val, value.Pbk, value.Sign, value.Seq, value.Cas, value.Salt, writeToken, onResponse)
@@ -388,7 +389,7 @@ func (d *DHT) MPut(addr *net.UDPAddr, value *MutablePut, onResponse func(kmsg.Ms
 	return doPut(writeToken)
 }
 
-// MPutAll issues a mutable put request to the closest nodes for given target.
+// MPutAll issues a mutable put request to the closest nodes for given value, or the list of given adresses.
 func (d *DHT) MPutAll(value *MutablePut, addrs ...*net.UDPAddr) error {
 
 	hexTarget := value.Target
@@ -404,7 +405,6 @@ func (d *DHT) MPutAll(value *MutablePut, addrs ...*net.UDPAddr) error {
 	if addrsLen > 0 {
 		errs = d.rpc.BatchAddrs(addrs, onResponse)
 	} else {
-		// get closest nodes.
 		closest, err := d.ClosestStores(hexTarget, 8)
 		if err != nil {
 			return err

@@ -18,8 +18,8 @@ var GenerateKey = src.GenerateKey
 // Verify is an alias
 var Verify = src.Verify
 
-// PublicKeyFromPvk generates the public key corresponding to the already hashed private
-// key.
+// PublicKeyFromPvk generates the [32]byte public key
+// corresponding to the already hashed private key.
 //
 // This code is mostly copied from GenerateKey in the
 // golang.org/x/crypto/ed25519 package, from after the SHA512
@@ -35,8 +35,7 @@ func PublicKeyFromPvk(privateKey []byte) []byte {
 	return publicKeyBytes[:]
 }
 
-// Sign calculates the signature from the (pre hashed) private key, public key
-// and message.
+// Sign calculates the signature from the (pre hashed) private key, public key and message.
 //
 // This code is mostly copied from the Sign function from
 // golang.org/x/crypto/ed25519, from after the SHA512 calculation of the

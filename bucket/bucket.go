@@ -1,3 +1,4 @@
+// Package bucket implements the Kademlia binary tree.
 package bucket
 
 import (

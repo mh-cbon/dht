@@ -10,9 +10,10 @@ import (
 	"github.com/mh-cbon/dht/socket"
 )
 
-func TestPeerStats(t *testing.T) {
+//todo : move to socket package.
+func TestBep43(t *testing.T) {
 	timeout := time.Millisecond * 10
-	port := 9806
+	port := 9406
 	// wantErr := func(t *testing.T, wanted error, got error) {
 	// 	if got == nil {
 	// 		t.Errorf("Wanted err=%v, got err=%v", wanted, got)
@@ -52,6 +53,26 @@ func TestPeerStats(t *testing.T) {
 			KRPCOpts.WithAddr(newAddr()),
 		)
 	}
+	t.Run("should ban node if it sends a query with read-only flag", func(t *testing.T) {
+
+		bob := makeRPC("bob", timeout)
+		go bob.Listen(func(msg kmsg.Msg, remote *net.UDPAddr) error {
+			if msg.RO != 1 {
+				t.Errorf("wanted alice to add ro flag=1, got=%v", msg.RO)
+			}
+			return bob.Respond(remote, msg.T, kmsg.Return{V: "hello"})
+		})
+		defer bob.Close()
+
+		alice := makeSocket("alice", timeout)
+
+		alice.ReadOnly(true)
+		alice.Query(bob.GetAddr(), "ping", nil, func(res kmsg.Msg) {})
+		<-time.After(timeout * 2)
+		if bob.IsBadNode(alice.GetAddr()) == false {
+			t.Errorf("wanted bob to record alice (%q) as bad node", alice.GetAddr().String())
+		}
+	})
 	t.Run("should ban node if it responds with 3 timeouts", func(t *testing.T) {
 		bob := makeRPC("bob", timeout)
 		go bob.Listen(func(msg kmsg.Msg, remote *net.UDPAddr) error {

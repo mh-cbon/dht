@@ -7,7 +7,7 @@ import (
 	"github.com/mh-cbon/dht/kmsg"
 )
 
-//Node is a contact on the network.
+//Node is a contact(id, addr) in the network.
 type Node struct {
 	bucket.ContactIdentifier
 }
@@ -19,7 +19,7 @@ func NewNode(id [20]byte, addr *net.UDPAddr) Node {
 	}
 }
 
-// NodeInfo produces kmsg.NodeInfo from a contact.
+// NodeInfo produces (compact) kmsg.NodeInfo of given contact.
 func NodeInfo(c bucket.ContactIdentifier) kmsg.NodeInfo {
 	i := [20]byte{}
 	id := c.GetID()

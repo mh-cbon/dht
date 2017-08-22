@@ -1,3 +1,4 @@
+// Package logger provides basic tools to watch activities of a dht/bittorent node.
 package logger
 
 import (

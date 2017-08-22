@@ -8,7 +8,7 @@ import (
 	"github.com/mh-cbon/dht/security"
 )
 
-// Activity is a query or a response or an error with timestamp.
+// Activity is a timestamp for one of query, response, error.
 type Activity struct {
 	kind string
 	id   string // receive query

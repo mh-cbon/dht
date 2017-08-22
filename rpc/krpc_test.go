@@ -191,7 +191,7 @@ func TestKRPC(t *testing.T) {
 		})
 		d := time.Now().Sub(now)
 		min := timeout
-		max := timeout + (time.Millisecond * 2)
+		max := timeout + (time.Millisecond * 4)
 		if d < min || d > max {
 			t.Errorf("the timeout duration is incorrect, wanted %v<%v<%v", min, d, max)
 		}

@@ -8,7 +8,7 @@ import (
 	"github.com/mh-cbon/dht/kmsg"
 )
 
-//Bencoded packet reader/writer
+//Bencoded packets reader/writer
 type Bencoded struct {
 	*Server
 }

@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-// Store tokens for a given address
+// Store of tokens received after sending "get_peers"/"get" query.
 type Store struct {
 	tokens map[string]string
 } //todos: add a limit on maximum number of tokens.
