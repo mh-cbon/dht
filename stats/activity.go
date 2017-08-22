@@ -42,7 +42,7 @@ func (p Activity) IsSecured(ip net.IP) bool {
 	return security.NodeIDSecure(p.id, ip)
 }
 
-// IsActive if it occured within given duration
+// IsActive if it occurred within given duration
 func (p Activity) IsActive(d time.Duration) bool {
 	return p.date.After(time.Now().Add(d))
 }

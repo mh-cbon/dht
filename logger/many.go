@@ -21,7 +21,7 @@ type Many struct {
 	loggers []LogReceiver
 }
 
-// NewMany initalizes a many loggers dispatcher.
+// NewMany initializes a many loggers dispatcher.
 func NewMany() *Many {
 	return &Many{}
 }

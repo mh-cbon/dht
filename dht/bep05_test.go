@@ -232,7 +232,7 @@ func TestBep05(t *testing.T) {
 							t.Errorf("Wanted len(msg.R.Values)>0, got=%v", len(msg.R.Values))
 						} else {
 							c := msg.R.Values[0]
-							w := fmt.Sprintf("%v:%v", alice.GetAddr().IP, 40) // becasue implied port = false
+							w := fmt.Sprintf("%v:%v", alice.GetAddr().IP, 40) // because implied port = false
 							g := fmt.Sprintf("%v:%v", c.IP, c.Port)
 							if w != g {
 								t.Errorf("wanted msg.R.Values=%v, got=%v", w, g)

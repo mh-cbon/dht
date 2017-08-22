@@ -144,7 +144,7 @@ func (n *bucketNode) count() int {
 }
 
 // RemoveByAddr a contact by its address.
-// address: Addres of the contact to remove.
+// address: Address of the contact to remove.
 func (n *bucketNode) removeByAddr(addr *net.UDPAddr) (ret []ContactIdentifier) {
 	nContacts := []ContactIdentifier{}
 	for _, c := range n.contacts {
@@ -468,7 +468,7 @@ func (k *KBucket) Get(id []byte) ContactIdentifier {
 }
 
 // RemoveByAddr a contact by its address.
-// address: Addres of the contact to remove.
+// address: Address of the contact to remove.
 func (k *KBucket) RemoveByAddr(addr *net.UDPAddr) (ret []ContactIdentifier) {
 
 	bitIndex := 0

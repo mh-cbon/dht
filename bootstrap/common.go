@@ -14,7 +14,7 @@ var Public = []string{
 	"router.bittorrent.com:6881",
 }
 
-//Node creates a bootstrap contact, a contact with an adress but no ID.
+//Node creates a bootstrap contact, a contact with an address but no ID.
 func Node(addr *net.UDPAddr) bucket.ContactIdentifier {
 	return bucket.NewContact("", *addr)
 }
