@@ -5,7 +5,7 @@
 Package dht is a kademlia implementation of a Distributed Hash Table.
 
 
-It provides support for bep05 / bep42 / bep43 / bep44
+It implements `bep05` / `bep42` / `bep43` / `bep44`
 
 Useful resources
 - http://engineering.bittorrent.com/2013/01/22/bittorrent-tech-talks-dht/
@@ -95,7 +95,7 @@ func main2() {
 
 # Cli
 
-the main.go file helps to play with the table.
+The provided `main.go` program helps to play with the bittorrent/dht table.
 
 ```sh
   -annimplied
