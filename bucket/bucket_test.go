@@ -253,7 +253,7 @@ func TestAdd(t *testing.T) {
 		for i := 0; i < bucket.numberOfNodesPerKBucket+1; i++ {
 			bucket.Add(&KContact{id: makeID(0x80, byte(i))})
 		}
-		<-time.After(time.Millisecond)
+		<-time.After(time.Millisecond * 4)
 		if !called {
 			panic("not called.")
 		}
