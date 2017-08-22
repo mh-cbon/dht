@@ -1,5 +1,6 @@
-// to test repetitive single lookup.
 package main
+
+// to test repetitive single lookup.
 
 import (
 	"flag"

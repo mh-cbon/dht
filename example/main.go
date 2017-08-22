@@ -1,5 +1,7 @@
-// to test speed...
+// Package example provides some demonstration of this api.
 package main
+
+// q&d speed test.
 
 import (
 	"flag"

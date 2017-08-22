@@ -1,5 +1,6 @@
-// to test repetitive multiple lookup and multiple table release.
 package main
+
+// to test repetitive multiple lookup and multiple table release.
 
 import (
 	"flag"
