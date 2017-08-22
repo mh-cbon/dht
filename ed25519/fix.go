@@ -1,3 +1,4 @@
+// Package ed25519 is a bittorrent compatible implementation of golang/ed25519 package.
 package ed25519
 
 import (
