@@ -4,7 +4,7 @@ package kmsg
 import (
 	"fmt"
 
-	"github.com/anacrolix/torrent/util"
+	"github.com/mh-cbon/dht/util"
 )
 
 // Msg represents messages that nodes in the network send to each other as specified by the protocol.

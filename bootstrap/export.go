@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/anacrolix/torrent/util"
+	"github.com/mh-cbon/dht/util"
 )
 
 // DataSave is a type to store known ip and contacts of an existing dht session.

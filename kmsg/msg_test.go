@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/anacrolix/torrent/bencode"
-	"github.com/anacrolix/torrent/util"
+	"github.com/mh-cbon/dht/util"
 )
 
 func testMarshalUnmarshalMsg(t *testing.T, m Msg, expected string) {

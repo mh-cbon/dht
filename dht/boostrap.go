@@ -4,7 +4,7 @@ import (
 	"net"
 	"os"
 
-	"github.com/anacrolix/torrent/util"
+	"github.com/mh-cbon/dht/util"
 	"github.com/mh-cbon/dht/security"
 )
 

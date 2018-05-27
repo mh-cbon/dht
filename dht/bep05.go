@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/anacrolix/torrent/util"
+	"github.com/mh-cbon/dht/util"
 	"github.com/mh-cbon/dht/kmsg"
 	"github.com/mh-cbon/dht/rpc"
 	"github.com/mh-cbon/dht/socket"
