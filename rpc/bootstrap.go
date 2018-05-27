@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/anacrolix/torrent/util"
+	"github.com/mh-cbon/dht/util"
 	"github.com/mh-cbon/dht/bootstrap"
 	"github.com/mh-cbon/dht/bucket"
 	"github.com/mh-cbon/dht/kmsg"

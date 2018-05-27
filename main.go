@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/anacrolix/torrent/iplist"
-	"github.com/anacrolix/torrent/util"
+	"github.com/mh-cbon/dht/util"
 	"github.com/mh-cbon/dht/bootstrap"
 	"github.com/mh-cbon/dht/bucket"
 	"github.com/mh-cbon/dht/crypto"

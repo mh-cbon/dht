@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/anacrolix/torrent/iplist"
-	"github.com/anacrolix/torrent/util"
+	"github.com/mh-cbon/dht/util"
 	"github.com/mh-cbon/dht/kmsg"
 	"github.com/mh-cbon/dht/logger"
 	"github.com/mh-cbon/dht/stats"
